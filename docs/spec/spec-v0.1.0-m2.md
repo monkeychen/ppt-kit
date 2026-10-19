@@ -3,7 +3,7 @@ doc: spec
 product: v0.1.0
 milestone: m2
 date: 2026-10-19
-status: draft
+status: approved
 ---
 
 # Spec v0.1.0-m2 — M2 位图文字还原与质量报告：Apple Vision OCR、分级背景净化、字体/字号/取色与渲染对比微调
@@ -72,6 +72,7 @@ class OCRBox:
     bbox_px: tuple[int, int, int, int]  # (x, y, w, h) in pixels, top-left origin
     confidence: float
 
+
 class PageQualityReport(BaseModel):
     page_index: int
     route: Literal["vector", "raster"]
@@ -126,7 +127,7 @@ class PageQualityReport(BaseModel):
 
 | 编号 | 内容 | 覆盖 AC | 依赖 | 状态 |
 |---|---|---|---|---|
-| **T1** | `pptkit/adapters/ocr.py` Apple Vision OCR 适配器与文本行后处理清洗 | AC7.1 | - | pending |
+| **T1** | `pptkit/adapters/ocr.py` Apple Vision OCR 适配器与文本行后处理清洗 | AC7.1 | - | done (`uv run pytest tests/unit/test_ocr.py`: 1 passed in 1.83s; ruff & pyright 0 errors) |
 | **T2** | `pptkit/raster/text_style.py` 笔画像素前景取色、字号估算、粗细/对齐判定与候选字体配置 | AC7.2, AC7.5 | T1 | pending |
 | **T3** | `pptkit/raster/inpaint.py` 分级背景净化器与 OCR 残留字符复检 | AC7.3 | T1, T2 | pending |
 | **T4** | `pptkit/raster/pipeline.py` & `refiner.py` 位图文字重建流水线与渲染对比单调微调 | AC7.1–7.5 | T1, T2, T3 | pending |
