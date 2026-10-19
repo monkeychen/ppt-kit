@@ -249,7 +249,7 @@ pptkit convert <input_path> -o <output_dir> [--route auto|vector|raster] [--prov
 | 编号 | 内容 | 覆盖 AC | 依赖 | 状态 |
 |---|---|---|---|---|
 | **T1** | 项目脚手架（`pyproject.toml`、`uv sync`）与 `pptkit/common/units.py`、`color.py` | AC2.2, AC3.3, AC5.2 | - | done (`uv run pytest tests/unit/test_units.py tests/unit/test_color.py`: 4 passed in 0.01s; ruff & pyright 0 errors) |
-| **T2** | `pptkit/ir/models.py` Slide IR 数据模型与 JSON 往返序列化 | AC2.1, AC2.2 | T1 | pending |
+| **T2** | `pptkit/ir/models.py` Slide IR 数据模型与 JSON 往返序列化 | AC2.1, AC2.2 | T1 | done (`uv run pytest tests/unit/test_ir.py`: 2 passed in 0.05s; ruff & pyright 0 errors) |
 | **T3** | `pptkit/ingest/` 5 种格式加载、vector/raster 路由判定、异常处理与 20 个测试样本 | AC1.1, AC1.2, AC1.3, AC1.4 | T2 | pending |
 | **T4** | `pptkit/writer/pptx_writer.py` IR → PPTX 生成器（含东亚字体、形状、图片、层级） | AC3.2, AC3.3, AC3.4 | T2 | pending |
 | **T5** | `pptkit/render/` PowerPoint & LibreOffice 渲染器 + SSIM / 区域 MAE / 差异热力图 + 真实软件兼容性校验脚本 | AC3.1, AC4.1, AC4.2 | T4 | pending |
