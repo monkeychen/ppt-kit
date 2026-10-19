@@ -122,6 +122,6 @@ OCR 定位文字 → 抹掉文字并补全背景 → 叠加可编辑文本框 �
 
 | 编号 | 问题 | 结论 | 理由与影响 |
 |---|---|---|---|
-| **D1** ✅ | 兼容性以哪个软件为准 | **以 PowerPoint 为准**（本机 16.114）；WPS 和 Keynote 只要求能正常打开、能编辑 | PowerPoint Mac 支持 AppleScript 的 `save as PNG` 和 `save as PDF`，所以**打分用的渲染（F4）直接用 PowerPoint**，测出来的就是用户实际看到的效果。LibreOffice 降为备用渲染器，在没有 PowerPoint 的环境下用，报告里会标注 `renderer`。**注意**：PowerPoint 运行在沙盒里，渲染时要先把文件复制到它的容器目录 `~/Library/Containers/com.microsoft.Powerpoint/Data/` 再导出；第一次运行需要用户在系统弹窗里允许终端控制 PowerPoint。WPS 和 Keynote 的兼容性（AC3.1）用 macOS 界面自动化（System Events）检测有没有弹出修复或报错窗口，并截图存档。*（变更记录：10:17 定为 WPS，10:38 用户装好 PowerPoint 后改为 PowerPoint）* |
+| **D1** ✅ | 兼容性以哪个软件为准 | **以 PowerPoint 为准**（本机 16.114）；WPS 和 Keynote 只要求能正常打开、能编辑 | 实测确认：PowerPoint Mac 的 AppleScript `save as PNG` 会静默失败，但 `save as PDF` 正常（耗时约 2 秒）。因此**打分用的渲染（F4）走「PowerPoint AppleScript 导出 PDF（经沙盒目录 `~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/`）+ PyMuPDF 按目标尺寸转 PNG」**，100% 还原 PowerPoint 原生排版与字体渲染。LibreOffice 降为无 PowerPoint 环境下的备用渲染器，报告标注 `renderer`。WPS 和 Keynote 的兼容性（AC3.1）用 macOS 界面自动化检测无报错弹窗并截图存档。*（变更记录：10:17 定为 WPS，10:38 用户装好 PowerPoint 后改为 PowerPoint 并实测跑通）* |
 | **D2** ✅ | OCR 引擎 | **Apple Vision**，做成 adapter | v0.1 只支持 macOS，系统自带、免费、离线、中文效果好；以后支持 Windows 时换成 PaddleOCR |
 | **D3** ⏳ | 抹掉文字后怎么补全背景 | 建议**分级处理**：① 文字下面是纯色 → 直接填色；② 渐变或简单纹理 → OpenCV 修复（不用下载模型）；③ 照片或复杂背景 → LaMa（ONNX 版本，约 208MB，第一次用到时自动下载到 `~/.cache/pptkit/`，Apache-2.0 协议可以随产品分发）；Gemini 图像编辑作为可选增强 | AI 生成的幻灯片里，大部分文字放在纯色或渐变背景上，前两级就能覆盖，速度最快，也不会改动原图；只有文字压在照片上时才需要 LaMa。对用户来说没有任何手动安装步骤 |
