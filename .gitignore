@@ -1,0 +1,11 @@
+out/
+scratch/
+.cache/
+benchmark/results/
+benchmark/real/**/*
+!benchmark/real/manifest.json
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
