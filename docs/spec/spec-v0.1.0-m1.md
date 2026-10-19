@@ -3,7 +3,7 @@ doc: spec
 product: v0.1.0
 milestone: m1
 date: 2026-10-19
-status: draft
+status: approved
 ---
 
 # Spec v0.1.0-m1 — M1 地基：Slide IR、PPTX 生成、渲染度量、合成基准与 CLI 骨架
@@ -98,11 +98,13 @@ status: draft
 from typing import Literal, Annotated
 from pydantic import BaseModel, Field
 
+
 class BBox(BaseModel):
     x: int = Field(ge=0, description="Left X in EMU")
     y: int = Field(ge=0, description="Top Y in EMU")
     width: int = Field(gt=0, description="Width in EMU")
     height: int = Field(gt=0, description="Height in EMU")
+
 
 class TextStyle(BaseModel):
     font_family: str = "PingFang SC"
@@ -112,15 +114,18 @@ class TextStyle(BaseModel):
     italic: bool = False
     underline: bool = False
 
+
 class TextRun(BaseModel):
     text: str
     style: TextStyle
+
 
 class Paragraph(BaseModel):
     runs: list[TextRun]
     align: Literal["left", "center", "right", "justify"] = "left"
     line_spacing_pt: float | None = None
     space_after_pt: float = 0.0
+
 
 class BaseElement(BaseModel):
     id: str
@@ -129,6 +134,7 @@ class BaseElement(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     source: Literal["vector", "ocr", "vlm", "cv", "synthetic", "fallback"] = "vector"
     degraded: bool = False
+
 
 class TextBoxElement(BaseElement):
     kind: Literal["textbox"] = "textbox"
@@ -139,6 +145,7 @@ class TextBoxElement(BaseElement):
     margin_top_emu: int = 0
     margin_bottom_emu: int = 0
 
+
 class ShapeElement(BaseElement):
     kind: Literal["shape"] = "shape"
     shape_type: Literal["rect", "round_rect", "ellipse", "line", "right_arrow", "freeform"]
@@ -148,19 +155,23 @@ class ShapeElement(BaseElement):
     corner_radius_ratio: float = Field(default=0.0, ge=0.0, le=0.5)
     points_emu: list[tuple[int, int]] | None = None
 
+
 class ImageElement(BaseElement):
     kind: Literal["image"] = "image"
     image_path: str
+
 
 SlideElement = Annotated[
     TextBoxElement | ShapeElement | ImageElement,
     Field(discriminator="kind"),
 ]
 
+
 class Background(BaseModel):
     fill_type: Literal["solid", "image"] = "solid"
     color_hex: str = Field(default="#FFFFFF", pattern=r"^#[0-9A-Fa-f]{6}$")
     image_path: str | None = None
+
 
 class SlideIR(BaseModel):
     page_index: int = Field(ge=0)
@@ -169,6 +180,7 @@ class SlideIR(BaseModel):
     height_emu: int = 6858000
     background: Background = Field(default_factory=Background)
     elements: list[SlideElement] = Field(default_factory=list)
+
 
 class PresentationIR(BaseModel):
     source_path: str
@@ -236,7 +248,7 @@ pptkit convert <input_path> -o <output_dir> [--route auto|vector|raster] [--prov
 
 | 编号 | 内容 | 覆盖 AC | 依赖 | 状态 |
 |---|---|---|---|---|
-| **T1** | 项目脚手架（`pyproject.toml`、`uv sync`）与 `pptkit/common/units.py`、`color.py` | AC2.2, AC3.3, AC5.2 | - | pending |
+| **T1** | 项目脚手架（`pyproject.toml`、`uv sync`）与 `pptkit/common/units.py`、`color.py` | AC2.2, AC3.3, AC5.2 | - | done (`uv run pytest tests/unit/test_units.py tests/unit/test_color.py`: 4 passed in 0.01s; ruff & pyright 0 errors) |
 | **T2** | `pptkit/ir/models.py` Slide IR 数据模型与 JSON 往返序列化 | AC2.1, AC2.2 | T1 | pending |
 | **T3** | `pptkit/ingest/` 5 种格式加载、vector/raster 路由判定、异常处理与 20 个测试样本 | AC1.1, AC1.2, AC1.3, AC1.4 | T2 | pending |
 | **T4** | `pptkit/writer/pptx_writer.py` IR → PPTX 生成器（含东亚字体、形状、图片、层级） | AC3.2, AC3.3, AC3.4 | T2 | pending |
