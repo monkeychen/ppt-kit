@@ -92,6 +92,13 @@
       "pages": 1,
       "expected_route": "raster",
       "sha256": "1176098764d1c86c8ea49ed0fc3bbf07de73ddbdd32f21b91dd1d658b694e10c"
+    },
+    {
+      "filename": "other/02-skill-folder-concept.jpg",
+      "source": "other",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "00ecf553c32ae95052babab8e5dd64fddf7a8f099e2eadc97257e7b70f55d48a"
     }
   ]
 }

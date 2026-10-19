@@ -85,6 +85,16 @@ def clean_ocr_boxes(boxes: list[OCRBox]) -> list[OCRBox]:
 
         x, y, w, h = box.bbox_px
 
+        # 0. Drop tiny low-confidence 1-2 char non-digit ASCII noise from micro-icons
+        if (
+            len(text) <= 2
+            and text.isascii()
+            and not text.isdigit()
+            and box.confidence <= 0.55
+            and max(w, h) <= 36
+        ):
+            continue
+
         # 1. Split merged two-digit badge prefix like "o7 回答AI跟你提出的问题"
         m_badge = MERGED_BADGE_PATTERN.match(text)
         if m_badge:
@@ -130,6 +140,41 @@ def clean_ocr_boxes(boxes: list[OCRBox]) -> list[OCRBox]:
             continue
 
         cleaned.append(OCRBox(text=text, bbox_px=(x, y, w, h), confidence=box.confidence))
+
+    # 3. Merge adjacent same-line sentence fragments split at punctuation
+    merged_changed = True
+    while merged_changed:
+        merged_changed = False
+        for i in range(len(cleaned)):
+            if merged_changed:
+                break
+            ax, ay, aw, ah = cleaned[i].bbox_px
+            for j in range(len(cleaned)):
+                if i == j:
+                    continue
+                bx, by, bw, bh = cleaned[j].bbox_px
+                min_h = min(ah, bh)
+                max_h = max(ah, bh)
+                if abs(ay - by) > 0.28 * min_h or abs(ah - bh) > 0.28 * max_h:
+                    continue
+                gap_x = bx - (ax + aw)
+                if 0 <= gap_x <= 0.45 * min_h and (
+                    cleaned[i].text.endswith(("，", "、", "：", "；"))
+                    or cleaned[j].text.startswith(("，", "。", "、", "："))
+                ):
+                    ux0 = min(ax, bx)
+                    uy0 = min(ay, by)
+                    ux1 = max(ax + aw, bx + bw)
+                    uy1 = max(ay + ah, by + bh)
+                    new_box = OCRBox(
+                        text=cleaned[i].text + cleaned[j].text,
+                        bbox_px=(ux0, uy0, ux1 - ux0, uy1 - uy0),
+                        confidence=min(cleaned[i].confidence, cleaned[j].confidence),
+                    )
+                    cleaned[i] = new_box
+                    cleaned.pop(j)
+                    merged_changed = True
+                    break
 
     return cleaned
 

@@ -141,3 +141,47 @@ def test_low_confidence_irregular_blob_degrades_gracefully() -> None:
     # Ensure the irregular region was preserved in residual_image for layer extraction
     res_arr = np.asarray(res.residual_image)
     assert np.array_equal(res_arr[80:260, 100:280], arr[80:260, 100:280])
+
+
+def test_recursive_container_decomposition_and_icon_detail_protection() -> None:
+    w_px, h_px = 1280, 720
+    img = Image.new("RGB", (w_px, h_px), (253, 248, 242))
+    draw = ImageDraw.Draw(img)
+
+    # 1. Large solid container card (light blue #DBEAFE) containing:
+    #    - a child orange pill (#FB6C06) with a white embedded icon (#FFFFFF)
+    #    - a child horizontal divider line (#334155)
+    draw.rounded_rectangle([80, 80, 680, 520], radius=24, fill=(219, 234, 254))
+    draw.rounded_rectangle([420, 130, 620, 190], radius=28, fill=(251, 108, 6))
+    # White embedded icon inside the orange pill
+    draw.ellipse([438, 144, 470, 176], fill=(255, 255, 255))
+    # Child horizontal divider line inside the blue card
+    draw.rectangle([120, 290, 640, 294], fill=(51, 65, 85))
+
+    # 2. Compact dark navy icon with internal white lines (like SKILL.md document icon)
+    #    Must NOT be flattened into a solid ShapeElement
+    draw.rounded_rectangle([850, 180, 910, 256], radius=8, fill=(5, 36, 81))
+    draw.rectangle([862, 202, 898, 207], fill=(255, 255, 255))
+    draw.rectangle([862, 218, 898, 223], fill=(255, 255, 255))
+    draw.rectangle([862, 234, 888, 239], fill=(255, 255, 255))
+
+    res = extract_raster_shapes(
+        img,
+        slide_width_emu=DEFAULT_SLIDE_WIDTH_EMU,
+        slide_height_emu=DEFAULT_SLIDE_HEIGHT_EMU,
+    )
+
+    # Expect 3 shapes: parent container card, child orange pill, and child divider line
+    # (the compact icon at x=850 must be excluded from shapes and left on residual_image)
+    assert len(res.shapes) == 3
+    shape_types = [s.shape_type for s in res.shapes]
+    assert shape_types.count("round_rect") == 2
+    assert shape_types.count("line") == 1
+
+    # White embedded icon inside the orange pill should be captured in embedded_crops
+    assert len(res.embedded_crops) >= 1
+
+    # Compact icon with internal white lines should remain intact on residual_image
+    res_arr = np.asarray(res.residual_image)
+    orig_arr = np.asarray(img)
+    assert np.array_equal(res_arr[180:256, 850:910], orig_arr[180:256, 850:910])

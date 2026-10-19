@@ -14,13 +14,12 @@ from pptkit.ir.models import (
     SlideElement,
     SlideIR,
     TextBoxElement,
-    TextRun,
 )
 from pptkit.raster.inpaint import inpaint_text_regions
 from pptkit.raster.layers import extract_image_layers
 from pptkit.raster.refiner import refine_slide_textboxes
 from pptkit.raster.shapes import extract_raster_shapes
-from pptkit.raster.text_style import estimate_text_style
+from pptkit.raster.text_style import estimate_text_runs
 from pptkit.render.metrics import compare_slide_images
 from pptkit.render.renderer import render_pptx
 from pptkit.writer.pptx_writer import write_pptx
@@ -86,6 +85,7 @@ def reconstruct_raster_slide(
         slide_width_emu=width_emu,
         slide_height_emu=height_emu,
         page_index=page_index,
+        embedded_crops=shape_res.embedded_crops,
     )
 
     cleaned_bg_path = w_dir / f"slide_{page_index:03d}_bg.png"
@@ -98,7 +98,7 @@ def reconstruct_raster_slide(
 
     for idx, box in enumerate(cleaned_boxes):
         x_px, y_px, w_px, h_px = box.bbox_px
-        style = estimate_text_style(
+        runs = estimate_text_runs(
             orig_img,
             bbox_px=box.bbox_px,
             text=box.text,
@@ -134,7 +134,7 @@ def reconstruct_raster_slide(
             word_wrap=False,
             paragraphs=[
                 Paragraph(
-                    runs=[TextRun(text=box.text, style=style)],
+                    runs=runs,
                     align=align,
                 )
             ],

@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 from pptkit.common.color import compute_delta_e
 from pptkit.raster.text_style import (
     DEFAULT_CANDIDATE_FONTS,
+    estimate_text_runs,
     estimate_text_style,
 )
 
@@ -40,3 +41,27 @@ def test_extract_text_color_font_size_and_bold_from_crop() -> None:
         text="AI 驱动的知识管理工作流",
     )
     assert compute_delta_e(style_dark.color_hex, "#0F172A") <= 5.0
+
+
+def test_estimate_text_runs_splits_multicolor_highlights() -> None:
+    img = Image.new("RGB", (1200, 300), color=(253, 248, 242))
+    draw = ImageDraw.Draw(img)
+    font_path = "/System/Library/Fonts/STHeiti Medium.ttc"
+    font = (
+        ImageFont.truetype(font_path, 44) if Path(font_path).exists() else ImageFont.load_default()
+    )
+
+    # Draw "系统" in dark navy (#121E44) followed by "先识别文件夹" in orange (#E65C19)
+    draw.text((100, 100), "系统", fill=(18, 30, 68), font=font)
+    draw.text((190, 100), "先识别文件夹", fill=(230, 92, 25), font=font)
+
+    runs = estimate_text_runs(
+        img,
+        bbox_px=(95, 95, 370, 58),
+        text="系统先识别文件夹",
+    )
+    assert len(runs) == 2
+    assert runs[0].text == "系统"
+    assert compute_delta_e(runs[0].style.color_hex, "#121E44") <= 8.0
+    assert runs[1].text == "先识别文件夹"
+    assert compute_delta_e(runs[1].style.color_hex, "#E65C19") <= 8.0

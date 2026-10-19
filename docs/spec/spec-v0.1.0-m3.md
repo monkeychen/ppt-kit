@@ -25,28 +25,32 @@ status: approved
 ## 2. 关键功能设计思路
 
 ### 2.1 分层重建总体流水线（在 `cleaned_bg_img` 上执行）
-M2 已经产出移除了全部文字笔画的 `cleaned_bg_img` 及 `TextBoxElement` 列表（`z_order >= 100`）。M3 在 `cleaned_bg_img` 上按从大到小、从底到顶的顺序拆解非文字视觉元素：
+M2 已经产出移除了全部文字笔画的 `cleaned_bg_img` 及 `TextBoxElement` 列表（`z_order >= 100`，支持单行内按字色聚类切分多色 `TextRun` 以及同行断句 OCR 框合并）。M3 在 `cleaned_bg_img` 上按从大到小、从底到顶的顺序拆解非文字视觉元素，且**所有像素/面积阈值均按页面短边 `S = min(W, H)`（相对于基准短边 `1080px`）动态缩放**：
 1. **全局底色估计**：采样页面四边外框像素中位数，得到页面基础底色 `page_bg_rgb`（例如真实样图的米白纸张底色 `#FAF7EE`，或合成样本的纯色背景）。
-2. **原生几何形状检测与提取 (`pptkit/raster/shapes.py`)**：
+2. **原生几何形状检测与容器递归拆解 (`pptkit/raster/shapes.py`)**：
    - **色块填充型形状（卡片、胶囊标签、纯色块、箭头、椭圆）**：
      - 对偏离 `page_bg_rgb` 的显著色块区域提取连通域掩码，计算外接框 `(x, y, w, h)`、面积占比 `fill_ratio = area / (w * h)`、内部色彩标准差 `inner_std` 以及四角圆弧曲率。
+     - **带内部纹理的小图标排他保护**：若紧凑型色块（`w / h < 1.8` 且尺寸 `< 0.22 * S`）内部腐蚀核存在高对比度花纹/镂空线条（`detail_ratio >= 0.03`，如深蓝文档图标内的白横线、圆形徽章内的白色图标），禁止将其压平为纯色 `ShapeElement`，保留给 `layers.py` 提取为独立 `ImageElement`。
      - **分类规则**：
        - `fill_ratio >= 0.94` 且内部色彩均匀：`rect`（直角矩形）。
-       - `0.76 <= fill_ratio < 0.94` 且四角对称内缩：`round_rect`（圆角矩形/胶囊标签），根据四角空白像素面积反推 `corner_radius_ratio`（`0.05`–`0.50`）。
-       - `0.70 <= fill_ratio < 0.84` 且轮廓与椭圆方程拟合误差 `< 0.04`：`ellipse`。
+       - `0.74 <= fill_ratio < 0.94` 且四角对称内缩：`round_rect`（圆角矩形/胶囊标签），根据四角空白像素面积反推 `corner_radius_ratio`（`0.04`–`0.48`）。
+       - `0.70 <= fill_ratio <= 0.84` 且轮廓与椭圆方程 IoU `>= 0.90`：`ellipse`。
        - 单向凸起且长宽比显著、头部呈三角形收敛：`right_arrow`。
+     - **容器递归拆解（Recursive Container Decomposition）**：当检测到实心填充卡片、横幅或胶囊后，以其填充色 `fill_med` 作为新的局部背景色构造局部画布 `sub_canvas`：
+       - 若为大尺寸实心容器卡片（`w >= 240 * S/1080, h >= 120 * S/1080`），在 `sub_canvas` 上递归调用 `extract_raster_shapes` 提取内部子形状（`z_order = z_parent + 10`）；
+       - 对 `sub_canvas` 内剩余偏离 `fill_med` 的内嵌图标（如橙色胶囊内的白色对勾图标、灰色胶囊内的展开图标、深色横幅内的五角星），相对于 `fill_med` 抠取透明 RGBA 裁剪块并生成上层独立 `ImageElement`（`z_order = z_parent + 5`），随后将父容器区域在底层背景上完整填平。
    - **细线描边型容器与分隔线（大圆角容器框、横幅框、直线）**：
-     - 检测内部接近 `page_bg_rgb` 但四周存在闭合彩色描边的矩形环路（如真实样图的 4 个大圆角分区框与底部横幅框），提取 `stroke_color_hex`、`stroke_width_emu`、`fill_color_hex` 与 `corner_radius_ratio`，生成底层容器 `ShapeElement`（`z_order: 1..20`）。
-     - 检测水平或垂直细长线段（`w / h >= 12` 或 `h / w >= 12`），还原为 `line` 形状。
+     - 检测四周存在闭合彩色描边的矩形环路（`0.012 <= fill_ratio < 0.58` 且周界集中度 `perim_ratio >= 0.72`），提取 `stroke_color_hex`、`stroke_width_emu`、`fill_color_hex` 与 `corner_radius_ratio`，生成底层容器 `ShapeElement`（`z_order: 10..25`）。若容器内部底色与页面底色存在显著色差（如浅米色底部横幅），赋予 `fill_color_hex` 并同步将容器内部底色还原为页面底色，保留内部独立图标。
+     - 检测水平或垂直细长线段（支持 `1px` 及以上线宽，`w / h >= 12` 或 `h / w >= 12`），还原为 `line` 形状。
 3. **独立插图与图标层分割 (`pptkit/raster/layers.py`)**：
-   - 在扣除已还原为 `ShapeElement` 的区域后，对剩余偏离背景色（或容器内底色）的复杂多色连通区域（经形态学膨胀聚合邻近笔触，过滤噪点）提取为独立插图区域（如电脑+麦克风插图、人物+话筒、文档+文件夹、循环箭头、底部五角星等）。
-   - **透明背景抠图（Alpha Matting）**：将插图裁剪区域内与局部背景色差 `<= 18` 的像素设为透明（`alpha = 0`），边缘像素平滑过渡，保存为独立 RGBA PNG（`slide_000_img_001.png` 等），生成 `ImageElement`（`z_order: 30..80`）。
+   - 在扣除已还原为 `ShapeElement` 的区域后，对剩余偏离背景色的复杂多色连通区域（使用 `3x3` 闭运算桥接 1px 抗锯齿缝隙，仅对图标尺寸 `<= 160 * S/1080` 的外框执行内含件合并，防止大容器或树状结构吞并独立小图标）提取为独立插图区域。
+   - **透明背景抠图（Alpha Matting）**：将插图裁剪区域内与外边界连通的背景像素设为透明（`alpha = 0`），保存为独立 RGBA PNG（`slide_000_img_001.png` 等），生成 `ImageElement`（`z_order: 40..70`）。
 4. **底层背景同步抹除**：
    - 所有已提取为原生 `ShapeElement` 或独立 `ImageElement` 的像素区域，在最终 `cleaned_bg_img` 中用其所在容器的底色（或 `page_bg_rgb`）填平，确保用户在 PowerPoint 中拖动任何形状或插图时，底下不会留有原图的残影。
 5. **置信度门禁与退化策略 (`AC8.3`)**：
    - 每个候选形状计算几何与色彩一致性得分 `confidence in [0.0, 1.0]`。
    - 若 `confidence >= 0.75`：生成可编辑 `ShapeElement`。
-   - 若 `0.40 <= confidence < 0.75`：遵循「宁可退化，不可错乱」，不生成走样的矢量形状，而是将其作为 `ImageElement(degraded=True)`（或保留在背景层），并将元素 ID 记入 `PageQualityReport.degraded_elements` 与 `low_confidence_elements`。
+   - 若 `confidence < 0.75`：遵循「宁可退化，不可错乱」，不生成走样的矢量形状，交由后续图片层提取或保留在背景层，并将元素 ID 记入 `PageQualityReport.degraded_elements` 与 `low_confidence_elements`。
 
 ---
 
@@ -56,10 +60,18 @@ M2 已经产出移除了全部文字笔画的 `cleaned_bg_img` 及 `TextBoxEleme
 
 ```python
 @dataclass
+class EmbeddedLayerCrop:
+    rgba: np.ndarray
+    bbox_emu: BBox
+    z_order: int
+
+
+@dataclass
 class ShapeExtractionResult:
     shapes: list[ShapeElement]
     degraded_ids: list[str]
     residual_image: Image.Image  # Background image with extracted shapes erased
+    embedded_crops: list[EmbeddedLayerCrop] = field(default_factory=list)
 
 
 @dataclass
@@ -70,9 +82,9 @@ class LayerExtractionResult:
 
 ### 3.2 元素层级顺序 (`z_order`) 规范
 - `0`：底图背景（`Background`）
-- `10..29`：大型描边容器框（如 4 大分区圆角框、底部横幅框）
-- `30..59`：独立插图与图标层（`ImageElement`）
-- `60..99`：顶层胶囊标签与小徽章（如 `01`–`12` 圆角框、分区标题胶囊）
+- `10..29`：大型描边或实心容器框（如分区圆角框、底部横幅框）及递归提取的容器内子形状
+- `40..74`：独立插图与图标层（`ImageElement`）
+- `75..85`：顶层胶囊标签、小徽章及胶囊内嵌微图标（`z_order = z_pill + 5`）
 - `100+`：原生可编辑文本框（`TextBoxElement`，永远位于形状与徽章上方，保证文字不被遮挡）
 
 ---
@@ -125,9 +137,12 @@ class LayerExtractionResult:
 ## 8. 验收记录
 
 - 验收日期：2026-10-19
-- 验收范围：AC8.1、AC8.2、AC8.3
+- 验收范围：AC8.1、AC8.2、AC8.3 及跨样图通用化改造
 - 验证结果：
-  - 单元测试：`uv run pytest tests/unit` 25 passed
+  - 单元测试：`uv run pytest tests/unit` 27 passed（新增容器递归拆解、带内部纹理小图标排他保护、同行多色 `TextRun` 切分单测）
   - 合成基准集成测试：`uv run pytest tests/integration/test_raster_synthetic_benchmark.py` 1 passed（形状召回率 `1.00 >= 0.85`，精确率 `1.00 >= 0.90`，平均 `SSIM >= 0.90`）
-  - 真实样图端到端测试：`uv run pytest tests/e2e` 2 passed（`01-ai-beginner-workflow.jpg` 生成 87 个独立可编辑元素：41 个原生文本框 + 19 个原生几何形状 + 27 个带透明通道的独立插图图层；每个插图如人物、话筒、每份文档、每支箭头、每个文件夹、循环卡片、五角星等均单独分割为独立 PNG，无多图粘连，PowerPoint 渲染图像经肉眼与指标双重核验无阴影伪影、无底层重影）
+  - 真实样图端到端测试：`uv run pytest tests/e2e` 3 passed：
+    - 样图 1（`01-ai-beginner-workflow.jpg`）：生成 89 个独立可编辑元素（41 个原生文本框 + 21 个原生几何形状 + 27 个独立插图图层），`SSIM = 0.670`，`text_region_mae = 59.46 < 60.0`，底图无胶囊残留、无多图粘连；
+    - 样图 2（`02-skill-folder-concept.jpg`）：生成 38 个独立可编辑元素（19 个原生文本框 + 6 个原生几何形状 + 13 个独立图标/结构图层，含从橙色/灰色胶囊中递归抠出的 2 个白色微图标、独立切分的黄色主文件夹与 4 个子项图标、同行双色高亮 `TextRun` 及底部浅色横幅与灯泡图标），`SSIM = 0.834`，底图 `slide_000_bg.png` 干净无残留。
   - 静态检查：`uv run ruff check . && uv run ruff format --check . && uv run pyright` 0 errors, 0 warnings
+

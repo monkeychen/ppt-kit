@@ -3,7 +3,7 @@ from PIL import Image
 
 from pptkit.common.color import rgb_to_hex
 from pptkit.common.units import DEFAULT_SLIDE_HEIGHT_EMU, emu_to_pt, px_to_emu
-from pptkit.ir.models import TextStyle
+from pptkit.ir.models import TextRun, TextStyle
 
 DEFAULT_CANDIDATE_FONTS: list[str] = [
     "PingFang SC",
@@ -12,6 +12,20 @@ DEFAULT_CANDIDATE_FONTS: list[str] = [
     "Arial",
     "Helvetica",
 ]
+
+
+def _char_em_weight(ch: str) -> float:
+    if ch in "，。：；！？、（）【】":
+        return 0.85
+    if ord(ch) > 127:
+        return 1.0
+    if ch.isspace():
+        return 0.25
+    if ch in "iIl|!.,:;1":
+        return 0.35
+    if ch.isupper():
+        return 0.68
+    return 0.54
 
 
 def _text_em_count(text: str) -> float:
@@ -126,3 +140,128 @@ def estimate_text_style(
         color_hex=fg_hex,
         bold=is_bold,
     )
+
+
+def estimate_text_runs(
+    image: Image.Image,
+    bbox_px: tuple[int, int, int, int],
+    text: str,
+    candidate_fonts: list[str] | None = None,
+    slide_height_emu: int = DEFAULT_SLIDE_HEIGHT_EMU,
+) -> list[TextRun]:
+    base_style = estimate_text_style(
+        image=image,
+        bbox_px=bbox_px,
+        text=text,
+        candidate_fonts=candidate_fonts,
+        slide_height_emu=slide_height_emu,
+    )
+    if len(text) < 4:
+        return [TextRun(text=text, style=base_style)]
+
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    h_img, w_img, _ = arr.shape
+    x, y, w, h = bbox_px
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(w_img, x + w), min(h_img, y + h)
+    if x1 - x0 < 12 or y1 - y0 < 6:
+        return [TextRun(text=text, style=base_style)]
+
+    bg_rgb, _ = sample_local_background_rgb(arr, bbox_px, ring=3)
+    patch = arr[y0:y1, x0:x1]
+    dists = np.linalg.norm(patch - bg_rgb, axis=-1)
+    if dists.size == 0 or float(np.max(dists)) < 25.0:
+        return [TextRun(text=text, style=base_style)]
+
+    thresh = float(np.percentile(dists, 82.0))
+    stroke_mask = dists >= max(30.0, thresh * 0.75)
+    ink_cols = np.where(np.any(stroke_mask, axis=0))[0]
+    if len(ink_cols) < 10:
+        return [TextRun(text=text, style=base_style)]
+
+    ix0, ix1 = int(ink_cols.min()), int(ink_cols.max()) + 1
+    iw = max(1, ix1 - ix0)
+    ems = [_char_em_weight(ch) for ch in text]
+    tot_em = sum(ems)
+    cur = 0.0
+    char_colors: list[np.ndarray] = []
+
+    for ch, em in zip(text, ems, strict=True):
+        cx0 = ix0 + int((cur / tot_em) * iw)
+        cur += em
+        cx1 = ix0 + max(cx0 - ix0 + 1, int((cur / tot_em) * iw))
+        if ch.isspace() or ch in "，。：；！？、|~-（）【】":
+            continue
+        sub_pts = patch[:, cx0:cx1][stroke_mask[:, cx0:cx1]]
+        if len(sub_pts) >= 5:
+            char_colors.append(np.median(sub_pts, axis=0))
+
+    if len(char_colors) < 4:
+        return [TextRun(text=text, style=base_style)]
+
+    cc = np.array(char_colors, dtype=np.float32)
+    c1 = np.percentile(cc, 15, axis=0)
+    c2 = np.percentile(cc, 85, axis=0)
+    for _ in range(10):
+        d1 = np.linalg.norm(cc - c1, axis=-1)
+        d2 = np.linalg.norm(cc - c2, axis=-1)
+        m1 = d1 <= d2
+        if not np.any(m1) or not np.any(~m1):
+            break
+        c1 = np.median(cc[m1], axis=0)
+        c2 = np.median(cc[~m1], axis=0)
+
+    cdist = float(np.linalg.norm(c1 - c2))
+    chroma_diff = float(
+        max(
+            abs((c1[0] - c1[2]) - (c2[0] - c2[2])),
+            abs((c1[0] - c1[1]) - (c2[0] - c2[1])),
+            abs((c1[1] - c1[2]) - (c2[1] - c2[2])),
+        )
+    )
+    if cdist < 80.0 or chroma_diff < 45.0:
+        return [TextRun(text=text, style=base_style)]
+
+    hex1 = rgb_to_hex((int(round(c1[0])), int(round(c1[1])), int(round(c1[2]))))
+    hex2 = rgb_to_hex((int(round(c2[0])), int(round(c2[1])), int(round(c2[2]))))
+    sat1 = float(np.max(c1) - np.min(c1))
+    sat2 = float(np.max(c2) - np.min(c2))
+    neutral_hex = hex1 if sat1 <= sat2 else hex2
+
+    cur = 0.0
+    runs_raw: list[tuple[str, str]] = []
+    for idx_ch, (ch, em) in enumerate(zip(text, ems, strict=True)):
+        cx0 = ix0 + int((cur / tot_em) * iw)
+        cur += em
+        cx1 = ix0 + max(cx0 - ix0 + 1, int((cur / tot_em) * iw))
+        if ch in "，。；！？、":
+            # Full-width punctuation uses the neutral body text color
+            col_hex = neutral_hex
+        elif ch == "：" and idx_ch > 0 and runs_raw:
+            col_hex = runs_raw[-1][1]
+        elif ch.isspace():
+            col_hex = runs_raw[-1][1] if runs_raw else neutral_hex
+        else:
+            sub_pts = patch[:, cx0:cx1][stroke_mask[:, cx0:cx1]]
+            if len(sub_pts) == 0:
+                col_hex = runs_raw[-1][1] if runs_raw else neutral_hex
+            else:
+                med_p = np.median(sub_pts, axis=0)
+                col_hex = (
+                    hex1
+                    if float(np.linalg.norm(med_p - c1)) <= float(np.linalg.norm(med_p - c2))
+                    else hex2
+                )
+
+        if runs_raw and runs_raw[-1][1] == col_hex:
+            runs_raw[-1] = (runs_raw[-1][0] + ch, col_hex)
+        else:
+            runs_raw.append((ch, col_hex))
+
+    return [
+        TextRun(
+            text=seg_text,
+            style=base_style.model_copy(update={"color_hex": seg_hex}),
+        )
+        for seg_text, seg_hex in runs_raw
+    ]

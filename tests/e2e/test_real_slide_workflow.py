@@ -70,3 +70,58 @@ def test_convert_user_real_slide_to_editable_pptx(tmp_path: Path) -> None:
     # Also render the final PPTX via PowerPoint to out/real_m2/rendered/ for visual inspection
     render_with_powerpoint(pptx_path, out_dir / "rendered", target_size=(2068, 1162))
     assert (out_dir / "rendered" / "01-ai-beginner-workflow_page_000.png").exists()
+
+
+def test_convert_second_real_slide_multicolor_and_nested_icons() -> None:
+    real_img = (
+        Path(__file__).resolve().parents[2] / "benchmark/real/other/02-skill-folder-concept.jpg"
+    )
+    assert real_img.exists()
+
+    out_dir = Path("out/real_s2")
+    succ, fail, rep = _convert_single_file(
+        src_file=real_img,
+        out_dir=out_dir,
+        route_opt="raster",
+        provider="gemini",
+        max_iter=1,
+        use_vlm=False,
+    )
+    assert succ == 1 and fail == 0
+    pptx_path = out_dir / "02-skill-folder-concept.pptx"
+    assert pptx_path.exists()
+    assert rep.pages[0].editable_elements >= 35
+    assert rep.pages[0].ssim is not None and rep.pages[0].ssim > 0.80
+
+    pres = Presentation(str(pptx_path))
+    shapes: list[Any] = list(pres.slides[0].shapes)
+    tb_shapes = [s for s in shapes if s.name.startswith("p0-tb-")]
+    geom_shapes = [s for s in shapes if s.name.startswith("p0-sh-")]
+    img_layers = [s for s in shapes if s.name.startswith("p0-img-")]
+    assert len(tb_shapes) >= 18
+    assert len(geom_shapes) >= 6
+    assert len(img_layers) >= 11
+
+    # Verify merged subtitle and multi-color TextRun segmentation
+    subtitle_tbs = [
+        s for s in tb_shapes if "核心观点：必须有 SKILL.md，也可以有其他资源。" in s.text_frame.text
+    ]
+    assert len(subtitle_tbs) == 1
+    assert len(subtitle_tbs[0].text_frame.paragraphs[0].runs) >= 4
+
+    bottom_tbs = [s for s in tb_shapes if "系统先识别文件夹，再读取说明。" in s.text_frame.text]
+    assert len(bottom_tbs) == 1
+    assert len(bottom_tbs[0].text_frame.paragraphs[0].runs) >= 4
+
+    # Ensure false "L" OCR noise from expand icon was filtered out
+    all_texts = [s.text_frame.text.strip() for s in tb_shapes]
+    assert "L" not in all_texts
+
+    # Verify bottom banner and lightbulb were completely erased from slide_000_bg.png
+    import numpy as np
+    from PIL import Image
+
+    bg_img = Image.open(out_dir / ".02-skill-folder-concept_assets/p000/slide_000_bg.png")
+    bg_arr = np.asarray(bg_img, dtype=np.float32)
+    banner_patch = bg_arr[980:1110, 500:700]
+    assert float(np.max(np.std(banner_patch.reshape(-1, 3), axis=0))) < 3.0
