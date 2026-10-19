@@ -52,6 +52,21 @@ def test_convert_user_real_slide_to_editable_pptx(tmp_path: Path) -> None:
     assert "同时沉淀成Skill" in joined
     assert "现在，只需要半天时间，你已经学会使用AI了。" in joined
 
+    # Verify slide_000_bg.png has zero colored capsule residue underneath the 4 section headers
+    import numpy as np
+    from PIL import Image
+
+    bg_img = Image.open(out_dir / ".01-ai-beginner-workflow_assets/p000/slide_000_bg.png")
+    bg_arr = np.asarray(bg_img, dtype=np.float32)
+    for x0, y0, x1, y1 in [
+        (290, 185, 780, 270),
+        (1270, 185, 1790, 270),
+        (240, 655, 800, 735),
+        (1285, 655, 1775, 735),
+    ]:
+        patch = bg_arr[y0:y1, x0:x1]
+        assert float(np.max(np.std(patch.reshape(-1, 3), axis=0))) < 3.0
+
     # Also render the final PPTX via PowerPoint to out/real_m2/rendered/ for visual inspection
     render_with_powerpoint(pptx_path, out_dir / "rendered", target_size=(2068, 1162))
     assert (out_dir / "rendered" / "01-ai-beginner-workflow_page_000.png").exists()

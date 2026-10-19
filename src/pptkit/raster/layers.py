@@ -11,7 +11,7 @@ from pptkit.common.units import (
     px_to_emu,
 )
 from pptkit.ir.models import BBox, ImageElement
-from pptkit.raster.shapes import estimate_page_background_rgb
+from pptkit.raster.shapes import estimate_page_background_rgb, sample_ring_background_rgb
 
 
 @dataclass
@@ -200,10 +200,10 @@ def extract_image_layers(
             )
         )
 
-        # Erase this illustration's opaque foreground from final_bg_image
-        own_fg = own_comp & fg_mask[y0:y1, x0:x1]
-        erase_sub = np.asarray(binary_dilation(own_fg, iterations=2), dtype=bool)
-        final_bg[y0:y1, x0:x1][erase_sub] = page_bg_rgb
+        # Erase this illustration's opaque region from final_bg_image using local background
+        local_bg_rgb = sample_ring_background_rgb(arr, fg_mask, x0, y0, x1, y1, page_bg_rgb)
+        erase_sub = np.asarray(binary_dilation(alpha > 0, iterations=2), dtype=bool)
+        final_bg[y0:y1, x0:x1][erase_sub] = local_bg_rgb
 
     return LayerExtractionResult(
         images=images,

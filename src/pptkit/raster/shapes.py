@@ -39,6 +39,31 @@ def estimate_page_background_rgb(arr: np.ndarray) -> np.ndarray:
     return np.median(border, axis=0)
 
 
+def sample_ring_background_rgb(
+    arr: np.ndarray,
+    fg_mask: np.ndarray,
+    x0: int,
+    y0: int,
+    x1: int,
+    y1: int,
+    fallback_rgb: np.ndarray,
+    ring_px: int = 6,
+) -> np.ndarray:
+    h_img, w_img, _ = arr.shape
+    rx0 = max(0, x0 - ring_px)
+    ry0 = max(0, y0 - ring_px)
+    rx1 = min(w_img, x1 + ring_px)
+    ry1 = min(h_img, y1 + ring_px)
+
+    ring_mask = np.ones((ry1 - ry0, rx1 - rx0), dtype=bool)
+    ring_mask[y0 - ry0 : y1 - ry0, x0 - rx0 : x1 - rx0] = False
+    bg_In_ring = ring_mask & (~fg_mask[ry0:ry1, rx0:rx1])
+    if int(np.sum(bg_In_ring)) >= 10:
+        pts = arr[ry0:ry1, rx0:rx1][bg_In_ring]
+        return np.median(pts, axis=0)
+    return fallback_rgb
+
+
 def _is_right_arrow(comp_mask: np.ndarray) -> bool:
     h, w = comp_mask.shape
     if w < h * 1.15 or w < 30 or h < 18:
@@ -175,6 +200,7 @@ def extract_raster_shapes(
         comp_hex = rgb_to_hex(
             (int(round(comp_med[0])), int(round(comp_med[1])), int(round(comp_med[2])))
         )
+        local_bg_rgb = sample_ring_background_rgb(arr, fg_mask, x0, y0, x1, y1, page_bg_rgb)
 
         # 1. Thin horizontal or vertical solid line
         comp_dist_bg = float(np.linalg.norm(comp_med - page_bg_rgb))
@@ -210,14 +236,15 @@ def extract_raster_shapes(
                         points_emu=pts,
                     )
                 )
-                dil = np.asarray(binary_dilation(comp_sub, iterations=1), dtype=bool)
-                residual[y0:y1, x0:x1][dil] = page_bg_rgb
+                dil = np.asarray(binary_dilation(comp_sub, iterations=2), dtype=bool)
+                residual[y0:y1, x0:x1][dil] = local_bg_rgb
                 continue
 
         # 2. Hollow bordered container (with optional attached top header capsule)
         if w >= 140 and h >= 42 and 0.06 <= fill_ratio < 0.58:
             rem_sub = comp_sub.copy()
             card_top_offset = 0
+            cap_box_coords: tuple[int, int, int] | None = None
 
             # Check for attached top solid header capsule (like the 4 section headers)
             max_cap_h = min(76, h // 3)
@@ -267,6 +294,7 @@ def extract_raster_shapes(
                                     )
                                 )
                                 rem_sub[:cy1, cx0:cx1] = False
+                                cap_box_coords = (cx0, cx1, cy1)
                                 # Find top border row of the main card outside the capsule
                                 left_shoulder = comp_sub[:40, 25 : max(26, cx0 - 5)]
                                 sh_rows = np.where(np.mean(left_shoulder, axis=1) >= 0.40)[0]
@@ -303,23 +331,33 @@ def extract_raster_shapes(
                     shape_seq += 1
                     is_large_card = (w * sub_h) > (w_img * h_img * 0.05)
                     z_card = 10 if is_large_card else 25
+
+                    # Estimate interior card background RGB from clean top-left shoulder inside card
+                    sh_y0 = min(h - 1, card_top_offset + 8)
+                    sh_y1 = max(sh_y0 + 1, min(h - bw_band, card_top_offset + 68))
+                    sh_x0 = min(w - 1, bw_band + 6)
+                    sh_x1 = max(
+                        sh_x0 + 1,
+                        (cap_box_coords[0] - 8) if cap_box_coords is not None else (w - bw_band),
+                    )
+                    inner_patch = arr[y0 + sh_y0 : y0 + sh_y1, x0 + sh_x0 : x0 + sh_x1]
+                    inner_bg_mask = ~fg_mask[y0 + sh_y0 : y0 + sh_y1, x0 + sh_x0 : x0 + sh_x1]
+                    if int(np.sum(inner_bg_mask)) >= 20:
+                        card_inner_rgb = np.median(inner_patch[inner_bg_mask], axis=0)
+                    elif inner_patch.size > 0:
+                        card_inner_rgb = np.median(inner_patch.reshape(-1, 3), axis=0)
+                    else:
+                        card_inner_rgb = local_bg_rgb
+
                     card_fill_hex: str | None = None
                     if not is_large_card:
-                        inner_box = arr[
-                            y0 + card_top_offset + bw_band : max(
-                                y0 + card_top_offset + bw_band + 1, y1 - bw_band
-                            ),
-                            x0 + bw_band : max(x0 + bw_band + 1, x1 - bw_band),
-                        ]
-                        if inner_box.size > 0:
-                            in_med = np.median(inner_box.reshape(-1, 3), axis=0)
-                            card_fill_hex = rgb_to_hex(
-                                (
-                                    int(round(in_med[0])),
-                                    int(round(in_med[1])),
-                                    int(round(in_med[2])),
-                                )
+                        card_fill_hex = rgb_to_hex(
+                            (
+                                int(round(card_inner_rgb[0])),
+                                int(round(card_inner_rgb[1])),
+                                int(round(card_inner_rgb[2])),
                             )
+                        )
                     shapes.append(
                         ShapeElement(
                             id=f"p{page_index}-sh-{shape_seq:03d}",
@@ -340,15 +378,23 @@ def extract_raster_shapes(
                         )
                     )
                     if is_large_card:
-                        card_erase = comp_sub & (~rem_sub)
-                        card_erase[: card_top_offset + bw_band, :] = comp_sub[
-                            : card_top_offset + bw_band, :
-                        ]
-                        card_erase[card_top_offset:, :][perim_mask] = sub_mask[perim_mask]
-                        dil = np.asarray(binary_dilation(card_erase, iterations=2), dtype=bool)
-                        residual[y0:y1, x0:x1][dil] = page_bg_rgb
+                        border_only = np.zeros_like(comp_sub, dtype=bool)
+                        border_only[card_top_offset:, :] = sub_mask & perim_mask
+                        dil_border = np.asarray(
+                            binary_dilation(border_only, iterations=2), dtype=bool
+                        )
+                        residual[y0:y1, x0:x1][dil_border] = card_inner_rgb
+                        if cap_box_coords is not None:
+                            cx0_c, cx1_c, cy1_c = cap_box_coords
+                            kx0 = max(0, cx0_c - 4)
+                            kx1 = min(w, cx1_c + 4)
+                            ky1 = min(h, cy1_c + 4)
+                            residual[y0 : y0 + card_top_offset, x0 + kx0 : x0 + kx1] = page_bg_rgb
+                            residual[y0 + card_top_offset : y0 + ky1, x0 + kx0 : x0 + kx1] = (
+                                card_inner_rgb
+                            )
                     else:
-                        residual[y0:y1, x0:x1] = page_bg_rgb
+                        residual[y0:y1, x0:x1] = local_bg_rgb
                     continue
 
         # 3. Solid / stroked-solid geometric shape candidate (including arrows)
@@ -437,18 +483,18 @@ def extract_raster_shapes(
             )
 
             # Erase shape from residual_image, preserving embedded icons inside wide banners
-            erase_mask = np.asarray(binary_dilation(comp_sub, iterations=1), dtype=bool)
+            erase_mask = np.ones_like(comp_sub, dtype=bool)
             if w >= 600 and h >= 50:
                 patch_sub = arr[y0:y1, x0:x1]
                 diff_from_fill = np.linalg.norm(patch_sub - fill_med, axis=-1)
                 inner_zone = np.zeros_like(comp_sub, dtype=bool)
-                inner_zone[8:-8, 8:-8] = True
+                inner_zone[8:-8, 25:-25] = True
                 embedded_icon = inner_zone & (diff_from_fill > 55.0)
                 if int(np.sum(embedded_icon)) >= 120:
                     keep_icon = np.asarray(binary_dilation(embedded_icon, iterations=1), dtype=bool)
                     erase_mask = erase_mask & (~keep_icon)
 
-            residual[y0:y1, x0:x1][erase_mask] = page_bg_rgb
+            residual[y0:y1, x0:x1][erase_mask] = local_bg_rgb
             continue
 
         degraded_ids.append(f"p{page_index}-deg-{comp_id:03d}")
