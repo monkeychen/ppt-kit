@@ -24,20 +24,26 @@ def inpaint_text_regions(image: Image.Image, boxes: list[OCRBox]) -> Image.Image
         bg_rgb, bg_std = sample_local_background_rgb(arr, (x, y, w, h), ring=3)
         patch = arr[y0:y1, x0:x1]
 
-        if bg_std <= 14.0:
-            # Tier 1: Solid background -> fill directly with median background color
+        if bg_std <= 2.0:
+            # Tier 1: Pure flat digital background -> fill directly with median background color
             arr[y0:y1, x0:x1] = bg_rgb
         else:
             # Tier 2: Textured/bordered background -> mask only stroke foreground pixels
-            # so container borders and capsule rounded corners remain completely intact
+            # so paper grain, container borders, and capsule rounded corners remain intact
             dists = np.linalg.norm(patch - bg_rgb, axis=-1)
             max_dist = float(np.max(dists))
-            if max_dist >= 18.0:
-                stroke_mask = dists >= max(22.0, max_dist * 0.28)
+            if max_dist >= 12.0:
+                stroke_mask = dists >= max(14.0, max_dist * 0.16)
                 dilated = np.asarray(binary_dilation(stroke_mask, iterations=2), dtype=bool)
-                # Estimate interior background from non-stroke pixels inside the box
                 non_stroke = patch[~dilated]
-                fill_color = np.median(non_stroke, axis=0) if len(non_stroke) > 0 else bg_rgb
+                if len(non_stroke) > 0:
+                    ns_dists = np.linalg.norm(non_stroke - bg_rgb, axis=-1)
+                    clean_ns = non_stroke[ns_dists <= 25.0]
+                    if len(clean_ns) == 0:
+                        clean_ns = non_stroke
+                    fill_color = np.median(clean_ns, axis=0)
+                else:
+                    fill_color = bg_rgb
                 patch[dilated] = fill_color
                 arr[y0:y1, x0:x1] = patch
 

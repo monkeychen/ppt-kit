@@ -14,6 +14,20 @@ DEFAULT_CANDIDATE_FONTS: list[str] = [
 ]
 
 
+def _text_em_count(text: str) -> float:
+    ems = 0.0
+    for ch in text:
+        if ord(ch) > 127:
+            ems += 1.0
+        elif ch.isspace():
+            ems += 0.28
+        elif ch in "iIl|!.,:;1":
+            ems += 0.38
+        else:
+            ems += 0.56
+    return max(ems, 0.5)
+
+
 def sample_local_background_rgb(
     arr: np.ndarray, bbox_px: tuple[int, int, int, int], ring: int = 3
 ) -> tuple[np.ndarray, float]:
@@ -35,6 +49,13 @@ def sample_local_background_rgb(
 
     median_rgb = np.median(border_pixels, axis=0)
     std_val = float(np.mean(np.std(border_pixels.astype(np.float32), axis=0)))
+
+    inner_crop = arr[iy0:iy1, ix0:ix1].reshape(-1, 3)
+    if len(inner_crop) > 0 and std_val > 22.0:
+        inner_med = np.median(inner_crop, axis=0)
+        if float(np.linalg.norm(median_rgb - inner_med)) > 25.0:
+            median_rgb = inner_med
+
     return median_rgb, std_val
 
 
@@ -78,10 +99,19 @@ def estimate_text_style(
 
         fg_hex = rgb_to_hex((int(round(fg_rgb[0])), int(round(fg_rgb[1])), int(round(fg_rgb[2]))))
 
-    # Font size estimation from bbox pixel height converted via units.py
+    # Font size estimation from bbox pixel height & width converted via units.py
     box_h_emu = px_to_emu(h, h_img, slide_height_emu)
+    box_w_emu = px_to_emu(w, h_img, slide_height_emu)
     box_h_pt = emu_to_pt(box_h_emu)
-    est_pt = max(8.0, round(box_h_pt * 0.78 * 2.0) / 2.0)
+    box_w_pt = emu_to_pt(box_w_emu)
+    ems = _text_em_count(text)
+    if ems >= 3.5:
+        pt_h = box_h_pt * 0.88
+        pt_w = box_w_pt / ems
+        raw_pt = min(pt_h * 1.05, pt_w * 0.98)
+    else:
+        raw_pt = box_h_pt * 0.82
+    est_pt = max(8.0, round(raw_pt * 2.0) / 2.0)
 
     has_cjk = any("\u4e00" <= ch <= "\u9fff" for ch in text)
     if has_cjk:

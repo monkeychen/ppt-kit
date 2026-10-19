@@ -37,11 +37,9 @@ class RasterReconstructionResult:
 def _infer_alignment(
     x_px: int, w_px: int, page_w_px: int, text: str
 ) -> Literal["left", "center", "right"]:
-    # Short badge numbers ("01".."12") or horizontally centered titles use center alignment
+    # Short badge numbers ("01".."12") use center alignment inside their badge box;
+    # all other text boxes start at their exact OCR left ink coordinate x_px.
     if len(text) <= 3 and text.isdigit():
-        return "center"
-    center_x = x_px + w_px / 2.0
-    if abs(center_x - page_w_px / 2.0) <= page_w_px * 0.04:
         return "center"
     return "left"
 
@@ -67,8 +65,8 @@ def reconstruct_raster_slide(
     raw_boxes = ocr.recognize(img_p, clean=False)
     cleaned_boxes = clean_ocr_boxes(raw_boxes)
 
-    # Inpaint using raw_boxes so every detected stroke area is erased from background
-    cleaned_bg_img = inpaint_text_regions(orig_img, raw_boxes)
+    # Inpaint using cleaned_boxes so stray icons and divider lines outside text are preserved
+    cleaned_bg_img = inpaint_text_regions(orig_img, cleaned_boxes)
     cleaned_bg_path = w_dir / f"slide_{page_index:03d}_bg.png"
     cleaned_bg_img.save(cleaned_bg_path)
 
@@ -86,13 +84,18 @@ def reconstruct_raster_slide(
         )
         align = _infer_alignment(x_px, w_px, width_px, box.text)
 
-        # Give slight horizontal width headroom (6%) so PowerPoint never wraps single-line text
-        padded_w_px = min(width_px - x_px, max(w_px + 8, round(w_px * 1.06)))
+        # Compensate for top font leading and give horizontal headroom for left-aligned text
+        y_adj_px = max(0, y_px - round(h_px * 0.08))
+        if align == "center":
+            padded_w_px = w_px
+        else:
+            padded_w_px = min(width_px - x_px, max(w_px + 10, round(w_px * 1.08)))
+        padded_h_px = min(height_px - y_adj_px, h_px + 6)
         bbox_emu = BBox(
             x=max(0, px_to_emu(x_px, width_px, width_emu)),
-            y=max(0, px_to_emu(y_px, height_px, height_emu)),
+            y=max(0, px_to_emu(y_adj_px, height_px, height_emu)),
             width=max(1, px_to_emu(padded_w_px, width_px, width_emu)),
-            height=max(1, px_to_emu(h_px, height_px, height_emu)),
+            height=max(1, px_to_emu(padded_h_px, height_px, height_emu)),
         )
         elem_id = f"p{page_index}-tb-{idx:03d}"
         if box.confidence < 0.45:

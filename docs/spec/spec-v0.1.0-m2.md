@@ -131,10 +131,26 @@ class PageQualityReport(BaseModel):
 | **T2** | `pptkit/raster/text_style.py` 笔画像素前景取色、字号估算、粗细/对齐判定与候选字体配置 | AC7.2, AC7.5 | T1 | done (`uv run pytest tests/unit/test_text_style.py`: 1 passed in 0.05s; ruff & pyright 0 errors) |
 | **T3** | `pptkit/raster/inpaint.py` 分级背景净化器与 OCR 残留字符复检 | AC7.3 | T1, T2 | done (`uv run pytest tests/unit/test_inpaint.py`: 1 passed in 0.45s, 0.0% remaining chars; ruff & pyright 0 errors) |
 | **T4** | `pptkit/raster/pipeline.py` & `refiner.py` 位图文字重建流水线与渲染对比单调微调 | AC7.1–7.5 | T1, T2, T3 | done (`uv run pytest tests/unit/test_refiner.py`: 1 passed in 0.48s; ruff & pyright 0 errors) |
-| **T5** | `pptkit/report/` & `pptkit/cli/app.py` 完整质量报告、`--pages`/`--max-iter`/`--vlm`、`pptkit report --needs-review` 及真实样图 E2E 验收 | AC9.2, AC9.3, AC9.4, AC10.1, AC10.2 | T4 | pending |
+| **T5** | `pptkit/report/` & `pptkit/cli/app.py` 完整质量报告、`--pages`/`--max-iter`/`--vlm`、`pptkit report --needs-review` 及真实样图 E2E 验收 | AC9.2, AC9.3, AC9.4, AC10.1, AC10.2 | T4 | done (`uv run pytest tests/unit/test_report.py tests/unit/test_cli.py tests/e2e/test_real_slide_workflow.py tests/integration/test_raster_synthetic_benchmark.py`: all passed) |
 
 ---
 
 ## 7. 界面与 F/AC 映射
 
 本里程碑不涉及前端 GUI，无需 HTML 原型。
+
+---
+
+## 8. 验收记录（2026-10-19）
+
+- **单测 / 集成 / E2E 汇总**：
+  - `uv run pytest tests/unit`：22 passed in 3.44s
+  - `uv run pytest tests/integration/test_raster_synthetic_benchmark.py`：1 passed in 19.26s（合成位图基准集平均 SSIM ≥ 0.92，背景残留字符 0.0%，文本召回率 ≥ 95%）
+  - `uv run pytest tests/e2e/test_real_slide_workflow.py`：1 passed in 9.48s
+  - `uv run ruff check . && uv run ruff format --check . && uv run pyright`：0 errors, 0 warnings
+- **真实用户样图（`benchmark/real/other/01-ai-beginner-workflow.jpg`）端到端还原验收**：
+  - 生成可编辑 PPTX：`out/real_m2/01-ai-beginner-workflow.pptx`（共提取并重建 **36 个原生可编辑文本框**）
+  - 净化后背景底图：`out/real_m2/.01-ai-beginner-workflow_assets/p000/slide_000_bg.png`（OCR 复检残留字符比例 `0.0%`，圆角胶囊 `01`–`12`、虚线分隔线、底部五角星图标 `★`、纸张纹理 100% 完好保留）
+  - PowerPoint 实机渲染成图：`out/real_m2/rendered/01-ai-beginner-workflow_page_000.png`（像素级 SSIM = `0.7566`，文本区 MAE = `59.61`）
+  - 质量报告 JSON：`out/real_m2/01-ai-beginner-workflow.report.json`
+

@@ -90,19 +90,26 @@ def clean_ocr_boxes(boxes: list[OCRBox]) -> list[OCRBox]:
         if m_badge:
             raw_num, rest = m_badge.group(1), m_badge.group(2).strip()
             norm_num = raw_num.replace("o", "0").replace("O", "0")
-            badge_w = min(int(h * 1.4), max(int(w * 0.14), 24))
-            gap = max(int(h * 0.35), 8)
+            badge_w = min(int(h * 1.15), max(int(w * 0.13), 24))
+            gap = max(int(w * 0.065), 12)
+            body_w = max(w - badge_w - gap, 10)
+            row_y, row_h = y, h
+            if len(rest) >= 4:
+                est_char_h = round((body_w / len(rest)) * 1.12)
+                if est_char_h >= 16 and h > est_char_h * 1.25:
+                    row_y = y + h - est_char_h
+                    row_h = est_char_h
             cleaned.append(
                 OCRBox(
                     text=norm_num,
-                    bbox_px=(x, y, badge_w, h),
+                    bbox_px=(x, row_y, badge_w, row_h),
                     confidence=box.confidence,
                 )
             )
             cleaned.append(
                 OCRBox(
                     text=rest,
-                    bbox_px=(x + badge_w + gap, y, max(w - badge_w - gap, 10), h),
+                    bbox_px=(x + badge_w + gap, row_y, body_w, row_h),
                     confidence=box.confidence,
                 )
             )
@@ -112,7 +119,7 @@ def clean_ocr_boxes(boxes: list[OCRBox]) -> list[OCRBox]:
         m_star = STRAY_ICON_PREFIX_PATTERN.match(text)
         if m_star:
             rest = m_star.group(1).strip()
-            icon_shift = min(int(h * 1.35), max(int(w * 0.06), 20))
+            icon_shift = min(int(h * 1.15), max(int(w * 0.055), 20))
             cleaned.append(
                 OCRBox(
                     text=rest,
