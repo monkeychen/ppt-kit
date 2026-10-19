@@ -17,7 +17,9 @@ from pptkit.ir.models import (
     TextRun,
 )
 from pptkit.raster.inpaint import inpaint_text_regions
+from pptkit.raster.layers import extract_image_layers
 from pptkit.raster.refiner import refine_slide_textboxes
+from pptkit.raster.shapes import extract_raster_shapes
 from pptkit.raster.text_style import estimate_text_style
 from pptkit.render.metrics import compare_slide_images
 from pptkit.render.renderer import render_pptx
@@ -32,6 +34,7 @@ class RasterReconstructionResult:
     text_region_mae: float | None = None
     heatmap_path: str | None = None
     low_confidence_ids: list[str] = field(default_factory=list)
+    degraded_count: int = 0
 
 
 def _infer_alignment(
@@ -65,12 +68,32 @@ def reconstruct_raster_slide(
     raw_boxes = ocr.recognize(img_p, clean=False)
     cleaned_boxes = clean_ocr_boxes(raw_boxes)
 
-    # Inpaint using cleaned_boxes so stray icons and divider lines outside text are preserved
-    cleaned_bg_img = inpaint_text_regions(orig_img, cleaned_boxes)
+    # 1. Inpaint text strokes using cleaned_boxes
+    text_cleaned_img = inpaint_text_regions(orig_img, cleaned_boxes)
+
+    # 2. Extract editable geometric shapes (containers, capsules, badges, lines, arrows)
+    shape_res = extract_raster_shapes(
+        text_cleaned_img,
+        slide_width_emu=width_emu,
+        slide_height_emu=height_emu,
+        page_index=page_index,
+    )
+
+    # 3. Extract standalone illustration / icon layers as RGBA PNGs and clear base background
+    layer_res = extract_image_layers(
+        shape_res.residual_image,
+        work_dir=w_dir,
+        slide_width_emu=width_emu,
+        slide_height_emu=height_emu,
+        page_index=page_index,
+    )
+
     cleaned_bg_path = w_dir / f"slide_{page_index:03d}_bg.png"
-    cleaned_bg_img.save(cleaned_bg_path)
+    layer_res.final_bg_image.save(cleaned_bg_path)
 
     elements: list[SlideElement] = []
+    elements.extend(shape_res.shapes)
+    elements.extend(layer_res.images)
     low_conf_ids: list[str] = []
 
     for idx, box in enumerate(cleaned_boxes):
@@ -104,7 +127,7 @@ def reconstruct_raster_slide(
         tb_elem = TextBoxElement(
             id=elem_id,
             bbox=bbox_emu,
-            z_order=idx + 1,
+            z_order=100 + idx,
             confidence=min(1.0, max(0.0, box.confidence)),
             source="ocr",
             degraded=False,

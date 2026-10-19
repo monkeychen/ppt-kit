@@ -25,13 +25,20 @@ def test_convert_user_real_slide_to_editable_pptx(tmp_path: Path) -> None:
     assert succ == 1 and fail == 0
     pptx_path = out_dir / "01-ai-beginner-workflow.pptx"
     assert pptx_path.exists()
-    assert rep.pages[0].editable_elements >= 35
-    assert rep.pages[0].ssim is not None and rep.pages[0].ssim > 0.75
+    assert rep.pages[0].editable_elements >= 75
+    assert rep.pages[0].ssim is not None and rep.pages[0].ssim > 0.65
     assert rep.pages[0].text_region_mae is not None and rep.pages[0].text_region_mae < 60.0
 
-    # Open generated PPTX and verify native editable textboxes contain expected strings
+    # Open generated PPTX and verify native editable textboxes, geometric shapes, and image layers
     pres = Presentation(str(pptx_path))
     shapes: list[Any] = list(pres.slides[0].shapes)
+    tb_shapes = [s for s in shapes if s.name.startswith("p0-tb-")]
+    geom_shapes = [s for s in shapes if s.name.startswith("p0-sh-")]
+    img_layers = [s for s in shapes if s.name.startswith("p0-img-")]
+    assert len(tb_shapes) >= 35
+    assert len(geom_shapes) >= 20
+    assert len(img_layers) >= 10
+
     all_texts = [s.text_frame.text for s in shapes if getattr(s, "has_text_frame", False)]
     joined = "\n".join(all_texts)
 

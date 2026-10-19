@@ -112,10 +112,22 @@ class LayerExtractionResult:
 |---|---|---|---|---|
 | **T1** | `pptkit/raster/shapes.py` 纯色与描边几何形状检测、分类（`rect`/`round_rect`/`ellipse`/`line`/`right_arrow`）、置信度退化与背景填平 | AC8.1, AC8.3 | - | done (`uv run pytest tests/unit/test_shapes.py`: 2 passed in 0.29s; ruff & pyright 0 errors) |
 | **T2** | `pptkit/raster/layers.py` 独立插图/照片连通域分割、RGBA 透明背景抠图与背景填平 | AC8.2 | T1 | done (`uv run pytest tests/unit/test_layers.py`: 1 passed in 0.33s; ruff & pyright 0 errors) |
-| **T3** | 将 `shapes` 与 `layers` 接入 `pptkit/raster/pipeline.py`，完成合成基准形状召回率/精确率集成测试与真实样图多图层 E2E 验收 | AC8.1, AC8.2, AC8.3 | T1, T2 | pending |
+| **T3** | 将 `shapes` 与 `layers` 接入 `pptkit/raster/pipeline.py`，完成合成基准形状召回率/精确率集成测试与真实样图多图层 E2E 验收 | AC8.1, AC8.2, AC8.3 | T1, T2 | done (`uv run pytest tests/unit tests/integration/test_raster_synthetic_benchmark.py tests/e2e`: 28 passed; ruff & pyright 0 errors) |
 
 ---
 
 ## 7. 界面与 F/AC 映射
 
 本里程碑不涉及前端 GUI，无需 HTML 原型。
+
+---
+
+## 8. 验收记录
+
+- 验收日期：2026-10-19
+- 验收范围：AC8.1、AC8.2、AC8.3
+- 验证结果：
+  - 单元测试：`uv run pytest tests/unit` 25 passed in 4.19s
+  - 合成基准集成测试：`uv run pytest tests/integration/test_raster_synthetic_benchmark.py` 1 passed in 14.91s（形状召回率 `1.00 >= 0.85`，精确率 `1.00 >= 0.90`，平均 `SSIM >= 0.90`）
+  - 真实样图端到端测试：`uv run pytest tests/e2e` 2 passed（`01-ai-beginner-workflow.jpg` 生成 80 个独立可编辑元素：41 个原生文本框 + 22 个原生几何形状 + 17 个带透明通道的独立插图图层，PowerPoint 渲染图像经肉眼与指标双重核验无阴影伪影、无底层重影）
+  - 静态检查：`uv run ruff check . && uv run ruff format --check . && uv run pyright` 0 errors, 0 warnings

@@ -77,8 +77,17 @@ def _classify_solid_geometry(
     if _is_right_arrow(comp_mask):
         return "right_arrow", 0.0, 0.90
 
-    # Corner fill check
-    cw = max(2, min(w, h) // 6)
+    # Corner tip check (5x5 extreme corners) and quadrant corner empty area
+    tip_w = max(2, min(5, min(w, h) // 8))
+    tips = [
+        comp_mask[:tip_w, :tip_w],
+        comp_mask[:tip_w, -tip_w:],
+        comp_mask[-tip_w:, :tip_w],
+        comp_mask[-tip_w:, -tip_w:],
+    ]
+    tip_fill = float(np.mean([np.mean(t) for t in tips]))
+
+    cw = max(3, min(w, h) // 3)
     corners = [
         comp_mask[:cw, :cw],
         comp_mask[:cw, -cw:],
@@ -86,6 +95,7 @@ def _classify_solid_geometry(
         comp_mask[-cw:, -cw:],
     ]
     corner_fill = float(np.mean([np.mean(c) for c in corners]))
+    mean_empty_corner_px = float(np.mean([np.sum(~c) for c in corners]))
 
     # Mid-edge fill check (middle 40% of each of the 4 sides)
     x_m0, x_m1 = int(w * 0.30), max(int(w * 0.30) + 1, int(w * 0.70))
@@ -108,16 +118,15 @@ def _classify_solid_geometry(
     union = float(np.sum(comp_mask | ideal_ellipse))
     ellipse_iou = inter / max(union, 1.0)
 
-    if fill_ratio >= 0.95 and corner_fill >= 0.82:
+    if fill_ratio >= 0.95 and tip_fill >= 0.80 and mean_empty_corner_px < 6.0:
         return "rect", 0.0, 0.96
 
-    if ellipse_iou >= 0.90 and fill_ratio <= 0.84 and corner_fill <= 0.18:
+    if ellipse_iou >= 0.90 and fill_ratio <= 0.84 and corner_fill <= 0.55 and tip_fill <= 0.05:
         return "ellipse", 0.0, 0.92
 
     if fill_ratio >= 0.74 and mid_edge_fill >= 0.78:
-        missing_ratio = max(0.0, 1.0 - fill_ratio)
-        r_px = math.sqrt(missing_ratio * w * h / max(4.0 - math.pi, 0.1))
-        radius_ratio = float(np.clip(r_px / max(min(w, h), 1), 0.06, 0.48))
+        r_px = math.sqrt(mean_empty_corner_px / max(1.0 - math.pi / 4.0, 0.05))
+        radius_ratio = float(np.clip(r_px / max(min(w, h), 1), 0.04, 0.48))
         return "round_rect", round(radius_ratio, 3), 0.90
 
     return None, 0.0, 0.45
@@ -136,10 +145,6 @@ def extract_raster_shapes(
     h_img, w_img, _ = arr.shape
 
     page_bg_rgb = estimate_page_background_rgb(arr)
-    page_bg_hex = rgb_to_hex(
-        (int(round(page_bg_rgb[0])), int(round(page_bg_rgb[1])), int(round(page_bg_rgb[2])))
-    )
-
     dist_map = np.linalg.norm(arr - page_bg_rgb, axis=-1)
     fg_mask = dist_map > 20.0
     lbl_res: tuple[np.ndarray, int] = label(fg_mask)  # type: ignore[assignment]
@@ -171,38 +176,43 @@ def extract_raster_shapes(
             (int(round(comp_med[0])), int(round(comp_med[1])), int(round(comp_med[2])))
         )
 
-        # 1. Thin horizontal or vertical line
-        is_horiz_line = w >= 40 and h <= 12 and (w / max(h, 1)) >= 10.0 and fill_ratio >= 0.65
-        is_vert_line = h >= 40 and w <= 12 and (h / max(w, 1)) >= 10.0 and fill_ratio >= 0.65
-        if (is_horiz_line or is_vert_line) and comp_std <= 30.0:
-            shape_seq += 1
-            bx = px_to_emu(x0, w_img, slide_width_emu)
-            by = px_to_emu(y0, h_img, slide_height_emu)
-            bw = max(1, px_to_emu(w, w_img, slide_width_emu))
-            bh = max(1, px_to_emu(h, h_img, slide_height_emu))
-            pts = (
-                [(bx, by + bh // 2), (bx + bw, by + bh // 2)]
-                if is_horiz_line
-                else [(bx + bw // 2, by), (bx + bw // 2, by + bh)]
-            )
-            stroke_w = max(pt_to_emu(1.0), px_to_emu(min(w, h), h_img, slide_height_emu))
-            shapes.append(
-                ShapeElement(
-                    id=f"p{page_index}-sh-{shape_seq:03d}",
-                    bbox=BBox(x=bx, y=by, width=bw, height=bh),
-                    z_order=70,
-                    confidence=0.92,
-                    source="cv",
-                    shape_type="line",
-                    fill_color_hex=None,
-                    stroke_color_hex=comp_hex,
-                    stroke_width_emu=stroke_w,
-                    points_emu=pts,
+        # 1. Thin horizontal or vertical solid line
+        comp_dist_bg = float(np.linalg.norm(comp_med - page_bg_rgb))
+        is_horiz_line = w >= 60 and h <= 10 and (w / max(h, 1)) >= 12.0 and fill_ratio >= 0.80
+        is_vert_line = h >= 60 and w <= 10 and (h / max(w, 1)) >= 12.0 and fill_ratio >= 0.80
+        if (is_horiz_line or is_vert_line) and comp_std <= 25.0 and comp_dist_bg >= 45.0:
+            axis_cov = np.mean(comp_sub, axis=0) if is_horiz_line else np.mean(comp_sub, axis=1)
+            slices = np.array_split(axis_cov, 8)
+            min_slice_cov = min(float(np.mean(s > 0.3)) for s in slices if len(s) > 0)
+            if min_slice_cov >= 0.85:
+                shape_seq += 1
+                bx = px_to_emu(x0, w_img, slide_width_emu)
+                by = px_to_emu(y0, h_img, slide_height_emu)
+                bw = max(1, px_to_emu(w, w_img, slide_width_emu))
+                bh = max(1, px_to_emu(h, h_img, slide_height_emu))
+                pts = (
+                    [(bx, by + bh // 2), (bx + bw, by + bh // 2)]
+                    if is_horiz_line
+                    else [(bx + bw // 2, by), (bx + bw // 2, by + bh)]
                 )
-            )
-            dil = np.asarray(binary_dilation(comp_sub, iterations=1), dtype=bool)
-            residual[y0:y1, x0:x1][dil] = page_bg_rgb
-            continue
+                stroke_w = max(pt_to_emu(1.0), px_to_emu(min(w, h), h_img, slide_height_emu))
+                shapes.append(
+                    ShapeElement(
+                        id=f"p{page_index}-sh-{shape_seq:03d}",
+                        bbox=BBox(x=bx, y=by, width=bw, height=bh),
+                        z_order=70,
+                        confidence=0.92,
+                        source="cv",
+                        shape_type="line",
+                        fill_color_hex=None,
+                        stroke_color_hex=comp_hex,
+                        stroke_width_emu=stroke_w,
+                        points_emu=pts,
+                    )
+                )
+                dil = np.asarray(binary_dilation(comp_sub, iterations=1), dtype=bool)
+                residual[y0:y1, x0:x1][dil] = page_bg_rgb
+                continue
 
         # 2. Hollow bordered container (with optional attached top header capsule)
         if w >= 140 and h >= 42 and 0.06 <= fill_ratio < 0.58:
@@ -291,7 +301,25 @@ def extract_raster_shapes(
                         (int(round(st_med[0])), int(round(st_med[1])), int(round(st_med[2])))
                     )
                     shape_seq += 1
-                    z_card = 10 if (w * sub_h) > (w_img * h_img * 0.05) else 25
+                    is_large_card = (w * sub_h) > (w_img * h_img * 0.05)
+                    z_card = 10 if is_large_card else 25
+                    card_fill_hex: str | None = None
+                    if not is_large_card:
+                        inner_box = arr[
+                            y0 + card_top_offset + bw_band : max(
+                                y0 + card_top_offset + bw_band + 1, y1 - bw_band
+                            ),
+                            x0 + bw_band : max(x0 + bw_band + 1, x1 - bw_band),
+                        ]
+                        if inner_box.size > 0:
+                            in_med = np.median(inner_box.reshape(-1, 3), axis=0)
+                            card_fill_hex = rgb_to_hex(
+                                (
+                                    int(round(in_med[0])),
+                                    int(round(in_med[1])),
+                                    int(round(in_med[2])),
+                                )
+                            )
                     shapes.append(
                         ShapeElement(
                             id=f"p{page_index}-sh-{shape_seq:03d}",
@@ -305,14 +333,22 @@ def extract_raster_shapes(
                             confidence=0.88,
                             source="cv",
                             shape_type="round_rect",
-                            fill_color_hex=page_bg_hex,
+                            fill_color_hex=card_fill_hex,
                             stroke_color_hex=st_hex,
                             stroke_width_emu=pt_to_emu(1.75),
                             corner_radius_ratio=0.04,
                         )
                     )
-                    dil = np.asarray(binary_dilation(comp_sub, iterations=1), dtype=bool)
-                    residual[y0:y1, x0:x1][dil] = page_bg_rgb
+                    if is_large_card:
+                        card_erase = np.zeros_like(comp_sub, dtype=bool)
+                        card_erase[: card_top_offset + bw_band, :] = comp_sub[
+                            : card_top_offset + bw_band, :
+                        ]
+                        card_erase[card_top_offset:, :][perim_mask] = sub_mask[perim_mask]
+                        dil = np.asarray(binary_dilation(card_erase, iterations=1), dtype=bool)
+                        residual[y0:y1, x0:x1][dil] = page_bg_rgb
+                    else:
+                        residual[y0:y1, x0:x1] = page_bg_rgb
                     continue
 
         # 3. Solid / stroked-solid geometric shape candidate (including arrows)
@@ -373,18 +409,19 @@ def extract_raster_shapes(
                                 int(round(edge_med[2])),
                             )
                         )
-                        stroke_w_emu = pt_to_emu(1.75)
+                        stroke_w_emu = pt_to_emu(1.5)
 
             shape_seq += 1
             z_solid = 18 if (w * h) > (w_img * h_img * 0.06) else 75
+            ins = 1 if stroke_hex is not None else 0
             shapes.append(
                 ShapeElement(
                     id=f"p{page_index}-sh-{shape_seq:03d}",
                     bbox=BBox(
-                        x=px_to_emu(x0, w_img, slide_width_emu),
-                        y=px_to_emu(y0, h_img, slide_height_emu),
-                        width=px_to_emu(w, w_img, slide_width_emu),
-                        height=px_to_emu(h, h_img, slide_height_emu),
+                        x=px_to_emu(x0 + ins, w_img, slide_width_emu),
+                        y=px_to_emu(y0 + ins, h_img, slide_height_emu),
+                        width=px_to_emu(max(1, w - 2 * ins), w_img, slide_width_emu),
+                        height=px_to_emu(max(1, h - 2 * ins), h_img, slide_height_emu),
                     ),
                     z_order=z_solid,
                     confidence=conf,
@@ -394,7 +431,7 @@ def extract_raster_shapes(
                     stroke_color_hex=stroke_hex,
                     stroke_width_emu=stroke_w_emu,
                     corner_radius_ratio=(
-                        0.04 if z_solid == 18 and shape_kind == "round_rect" else radius_ratio
+                        0.05 if z_solid == 18 and shape_kind == "round_rect" else radius_ratio
                     ),
                 )
             )

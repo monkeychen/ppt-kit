@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from benchmark.synthetic.evaluator import evaluate_slide_ir
 from benchmark.synthetic.generator import generate_synthetic_dataset
 from pptkit.adapters.ocr import AppleVisionOCRAdapter
 from pptkit.ir.models import TextBoxElement
@@ -10,7 +11,7 @@ from pptkit.raster.pipeline import reconstruct_raster_slide
 
 
 @pytest.mark.integration
-def test_synthetic_raster_benchmark_meets_f7_thresholds(tmp_path: Path) -> None:
+def test_synthetic_raster_benchmark_meets_f7_and_f8_thresholds(tmp_path: Path) -> None:
     samples = generate_synthetic_dataset(tmp_path / "synth", count=2, seed=42, render=True)
     ocr = AppleVisionOCRAdapter()
 
@@ -49,6 +50,11 @@ def test_synthetic_raster_benchmark_meets_f7_thresholds(tmp_path: Path) -> None:
         ]
         pred_chars = sum(len(t) for t in pred_texts)
         assert pred_chars / max(orig_chars, 1) >= 0.95
+
+        # AC8.1: Shape reconstruction recall >= 85% and precision >= 90%
+        eval_metrics = evaluate_slide_ir(sample.slide_ir, res.slide_ir)
+        assert eval_metrics.shape_recall >= 0.85
+        assert eval_metrics.shape_precision >= 0.90
 
         assert res.ssim is not None
         ssims.append(res.ssim)

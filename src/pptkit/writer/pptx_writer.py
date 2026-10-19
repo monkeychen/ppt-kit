@@ -95,7 +95,20 @@ def _add_textbox(slide: Any, elem: TextBoxElement) -> None:
             _set_east_asian_font(run, run_ir.style.font_family)
 
 
+def _disable_shadow(shape: Any) -> None:
+    try:
+        shape.shadow.inherit = False
+    except Exception:
+        pass
+    a_ns = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    p_ns = "{http://schemas.openxmlformats.org/presentationml/2006/main}"
+    for style_el in shape._element.findall(f"{p_ns}style"):
+        for eff_ref in style_el.findall(f"{a_ns}effectRef"):
+            eff_ref.set("idx", "0")
+
+
 def _apply_fill_and_stroke(shape: Any, elem: ShapeElement) -> None:
+    _disable_shadow(shape)
     if elem.fill_color_hex:
         shape.fill.solid()
         shape.fill.fore_color.rgb = _rgb_color(elem.fill_color_hex)
@@ -121,6 +134,7 @@ def _add_shape(slide: Any, elem: ShapeElement) -> None:
             Emu(pts[-1][1]),
         )
         conn.name = elem.id
+        _disable_shadow(conn)
         if elem.stroke_color_hex:
             conn.line.color.rgb = _rgb_color(elem.stroke_color_hex)
         conn.line.width = Emu(max(elem.stroke_width_emu, 1))

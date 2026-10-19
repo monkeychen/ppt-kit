@@ -57,6 +57,8 @@ def extract_image_layers(
         fg_count = len(ys)
         if fg_count < 380:
             continue
+        if float(np.percentile(dist_map[ys, xs], 85)) < 45.0:
+            continue
 
         x0_raw, x1_raw = int(xs.min()), int(xs.max()) + 1
         y0_raw, y1_raw = int(ys.min()), int(ys.max()) + 1
