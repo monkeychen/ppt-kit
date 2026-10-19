@@ -37,7 +37,9 @@ def test_convert_user_real_slide_to_editable_pptx(tmp_path: Path) -> None:
     img_layers = [s for s in shapes if s.name.startswith("p0-img-")]
     assert len(tb_shapes) >= 35
     assert len(geom_shapes) >= 20
-    assert len(img_layers) >= 10
+    assert len(img_layers) >= 24
+    # Ensure no multiple illustrations were merged into a single huge image layer
+    assert all(s.width <= 1600000 and s.height <= 1600000 for s in img_layers)
 
     all_texts = [s.text_frame.text for s in shapes if getattr(s, "has_text_frame", False)]
     joined = "\n".join(all_texts)

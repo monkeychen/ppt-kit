@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import binary_dilation, label
+from scipy.ndimage import binary_closing, binary_dilation, label
 
 from pptkit.common.units import (
     DEFAULT_SLIDE_HEIGHT_EMU,
@@ -37,39 +37,112 @@ def extract_image_layers(
 
     page_bg_rgb = estimate_page_background_rgb(arr)
     dist_map = np.linalg.norm(arr - page_bg_rgb, axis=-1)
-    fg_mask = dist_map > 22.0
+    fg_mask = dist_map > 28.0
 
-    # Group nearby illustration strokes using a 15x15 structuring kernel
-    group_mask = np.asarray(
-        binary_dilation(fg_mask, structure=np.ones((15, 15), dtype=bool), iterations=1),
+    # Use a 3x3 closing kernel to bridge 1px anti-aliased gaps without merging neighboring icons
+    closed_mask = np.asarray(
+        binary_closing(fg_mask, structure=np.ones((3, 3), dtype=bool), iterations=1),
         dtype=bool,
     )
-    lbl_res: tuple[np.ndarray, int] = label(group_mask)  # type: ignore[assignment]
+    lbl_res: tuple[np.ndarray, int] = label(closed_mask)  # type: ignore[assignment]
     labeled_arr, num_features = lbl_res
     labeled = np.asarray(labeled_arr, dtype=np.int32)
 
-    images: list[ImageElement] = []
-    img_seq = 0
-
+    # Collect raw foreground components: [x0, y0, x1, y1, fg_count, [comp_ids]]
+    raw_groups: list[list[int | list[int]]] = []
     for comp_id in range(1, int(num_features) + 1):
         comp_fg = (labeled == comp_id) & fg_mask
         ys, xs = np.where(comp_fg)
         fg_count = len(ys)
-        if fg_count < 380:
+        if fg_count < 80:
             continue
         if float(np.percentile(dist_map[ys, xs], 85)) < 45.0:
             continue
 
-        x0_raw, x1_raw = int(xs.min()), int(xs.max()) + 1
-        y0_raw, y1_raw = int(ys.min()), int(ys.max()) + 1
-        w_raw, h_raw = x1_raw - x0_raw, y1_raw - y0_raw
+        x0_c, x1_c = int(xs.min()), int(xs.max()) + 1
+        y0_c, y1_c = int(ys.min()), int(ys.max()) + 1
+        w_c, h_c = x1_c - x0_c, y1_c - y0_c
+        if w_c < 10 and h_c < 10:
+            continue
+        raw_groups.append([x0_c, y0_c, x1_c, y1_c, fg_count, [comp_id]])
 
-        # Skip thin 1D dashed lines or tiny artifacts
-        if w_raw < 24 or h_raw < 22:
+    # Merge enclosed inner parts (e.g. table/pie inside document) and compact multi-stroke icons
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(raw_groups)):
+            if changed:
+                break
+            ax0 = int(raw_groups[i][0])  # type: ignore[arg-type]
+            ay0 = int(raw_groups[i][1])  # type: ignore[arg-type]
+            ax1 = int(raw_groups[i][2])  # type: ignore[arg-type]
+            ay1 = int(raw_groups[i][3])  # type: ignore[arg-type]
+            afg = int(raw_groups[i][4])  # type: ignore[arg-type]
+            acids: list[int] = raw_groups[i][5]  # type: ignore[assignment]
+            for j in range(i + 1, len(raw_groups)):
+                bx0 = int(raw_groups[j][0])  # type: ignore[arg-type]
+                by0 = int(raw_groups[j][1])  # type: ignore[arg-type]
+                bx1 = int(raw_groups[j][2])  # type: ignore[arg-type]
+                by1 = int(raw_groups[j][3])  # type: ignore[arg-type]
+                bfg = int(raw_groups[j][4])  # type: ignore[arg-type]
+                bcids: list[int] = raw_groups[j][5]  # type: ignore[assignment]
+
+                ix0, iy0 = max(ax0, bx0), max(ay0, by0)
+                ix1, iy1 = min(ax1, bx1), min(ay1, by1)
+                inter = max(0, ix1 - ix0) * max(0, iy1 - iy0)
+                area_a = max(1, (ax1 - ax0) * (ay1 - ay0))
+                area_b = max(1, (bx1 - bx0) * (by1 - by0))
+                is_enclosed = (inter / float(min(area_a, area_b))) >= 0.80
+
+                ux0, uy0 = min(ax0, bx0), min(ay0, by0)
+                ux1, uy1 = max(ax1, bx1), max(ay1, by1)
+                uw, uh = ux1 - ux0, uy1 - uy0
+                gap_x = max(0, max(ax0, bx0) - min(ax1, bx1))
+                gap_y = max(0, max(ay0, by0) - min(ay1, by1))
+
+                # Compact multi-stroke icon (download arrow+tray, refresh arcs, rays)
+                is_compact_icon = uw <= 95 and uh <= 95 and gap_x <= 14 and gap_y <= 22
+                # Parallel double-underline decorative strokes
+                horiz_ov = max(0, min(ax1, bx1) - max(ax0, bx0)) / float(
+                    max(1, min(ax1 - ax0, bx1 - bx0))
+                )
+                is_double_underline = uh <= 36 and uw <= 220 and gap_y <= 10 and horiz_ov >= 0.75
+
+                if is_enclosed or is_compact_icon or is_double_underline:
+                    raw_groups[i] = [ux0, uy0, ux1, uy1, afg + bfg, acids + bcids]
+                    raw_groups.pop(j)
+                    changed = True
+                    break
+
+    final_groups: list[list[int | list[int]]] = []
+    for grp in sorted(raw_groups, key=lambda g: (int(g[1]) // 180, int(g[0]))):  # type: ignore[arg-type]
+        x0_raw = int(grp[0])  # type: ignore[arg-type]
+        y0_raw = int(grp[1])  # type: ignore[arg-type]
+        x1_raw = int(grp[2])  # type: ignore[arg-type]
+        y1_raw = int(grp[3])  # type: ignore[arg-type]
+        fg_count = int(grp[4])  # type: ignore[arg-type]
+        w_raw, h_raw = x1_raw - x0_raw, y1_raw - y0_raw
+        if fg_count < 320 or w_raw < 22 or h_raw < 20:
             continue
         aspect = w_raw / float(max(h_raw, 1))
-        if aspect > 7.5 or aspect < (1.0 / 7.5):
+        if aspect > 8.5 or aspect < (1.0 / 8.5):
             continue
+        final_groups.append(grp)
+
+    images: list[ImageElement] = []
+    img_seq = 0
+
+    for idx_g, grp in enumerate(final_groups):
+        x0_raw = int(grp[0])  # type: ignore[arg-type]
+        y0_raw = int(grp[1])  # type: ignore[arg-type]
+        x1_raw = int(grp[2])  # type: ignore[arg-type]
+        y1_raw = int(grp[3])  # type: ignore[arg-type]
+        other_cids: list[int] = [
+            cid
+            for k, other_g in enumerate(final_groups)
+            if k != idx_g
+            for cid in other_g[5]  # type: ignore[union-attr]
+        ]
 
         pad = 2
         x0 = max(0, x0_raw - pad)
@@ -80,9 +153,20 @@ def extract_image_layers(
 
         patch_rgb = np.clip(np.round(arr[y0:y1, x0:x1]), 0, 255).astype(np.uint8)
         patch_dist = dist_map[y0:y1, x0:x1]
+        sub_lbl = labeled[y0:y1, x0:x1]
 
-        # Exterior background connected to the crop boundary gets alpha=0; interior stays opaque
-        bg_cand = patch_dist <= 18.0
+        other_comp = (
+            np.isin(sub_lbl, other_cids) if other_cids else np.zeros_like(sub_lbl, dtype=bool)
+        )
+        own_comp = (sub_lbl > 0) & (~other_comp)
+        other_dil = (
+            np.asarray(binary_dilation(other_comp, iterations=2), dtype=bool)
+            if np.any(other_comp)
+            else np.zeros_like(own_comp, dtype=bool)
+        )
+
+        # Exterior background connected to the crop boundary (or other icons) gets alpha=0
+        bg_cand = (patch_dist <= 20.0) | other_dil
         bg_lbl_res: tuple[np.ndarray, int] = label(bg_cand)  # type: ignore[assignment]
         bg_lbl, _ = bg_lbl_res
         border_labels = set(np.unique(bg_lbl[0, :]))
@@ -91,7 +175,7 @@ def extract_image_layers(
         border_labels.update(np.unique(bg_lbl[:, -1]))
         border_labels.discard(0)
 
-        ext_bg_mask = np.isin(bg_lbl, list(border_labels))
+        ext_bg_mask = np.isin(bg_lbl, list(border_labels)) | other_dil
         alpha = np.where(ext_bg_mask, 0, 255).astype(np.uint8)
 
         rgba = np.dstack([patch_rgb, alpha])
@@ -116,9 +200,9 @@ def extract_image_layers(
             )
         )
 
-        # Erase foreground pixels of this illustration from final_bg_image
-        sub_fg = comp_fg[y0:y1, x0:x1]
-        erase_sub = np.asarray(binary_dilation(sub_fg, iterations=2), dtype=bool)
+        # Erase this illustration's opaque foreground from final_bg_image
+        own_fg = own_comp & fg_mask[y0:y1, x0:x1]
+        erase_sub = np.asarray(binary_dilation(own_fg, iterations=2), dtype=bool)
         final_bg[y0:y1, x0:x1][erase_sub] = page_bg_rgb
 
     return LayerExtractionResult(

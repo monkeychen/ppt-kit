@@ -340,12 +340,12 @@ def extract_raster_shapes(
                         )
                     )
                     if is_large_card:
-                        card_erase = np.zeros_like(comp_sub, dtype=bool)
+                        card_erase = comp_sub & (~rem_sub)
                         card_erase[: card_top_offset + bw_band, :] = comp_sub[
                             : card_top_offset + bw_band, :
                         ]
                         card_erase[card_top_offset:, :][perim_mask] = sub_mask[perim_mask]
-                        dil = np.asarray(binary_dilation(card_erase, iterations=1), dtype=bool)
+                        dil = np.asarray(binary_dilation(card_erase, iterations=2), dtype=bool)
                         residual[y0:y1, x0:x1][dil] = page_bg_rgb
                     else:
                         residual[y0:y1, x0:x1] = page_bg_rgb

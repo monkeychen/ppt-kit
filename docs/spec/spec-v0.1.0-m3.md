@@ -127,7 +127,7 @@ class LayerExtractionResult:
 - 验收日期：2026-10-19
 - 验收范围：AC8.1、AC8.2、AC8.3
 - 验证结果：
-  - 单元测试：`uv run pytest tests/unit` 25 passed in 4.19s
-  - 合成基准集成测试：`uv run pytest tests/integration/test_raster_synthetic_benchmark.py` 1 passed in 14.91s（形状召回率 `1.00 >= 0.85`，精确率 `1.00 >= 0.90`，平均 `SSIM >= 0.90`）
-  - 真实样图端到端测试：`uv run pytest tests/e2e` 2 passed（`01-ai-beginner-workflow.jpg` 生成 80 个独立可编辑元素：41 个原生文本框 + 22 个原生几何形状 + 17 个带透明通道的独立插图图层，PowerPoint 渲染图像经肉眼与指标双重核验无阴影伪影、无底层重影）
+  - 单元测试：`uv run pytest tests/unit` 25 passed
+  - 合成基准集成测试：`uv run pytest tests/integration/test_raster_synthetic_benchmark.py` 1 passed（形状召回率 `1.00 >= 0.85`，精确率 `1.00 >= 0.90`，平均 `SSIM >= 0.90`）
+  - 真实样图端到端测试：`uv run pytest tests/e2e` 2 passed（`01-ai-beginner-workflow.jpg` 生成 87 个独立可编辑元素：41 个原生文本框 + 19 个原生几何形状 + 27 个带透明通道的独立插图图层；每个插图如人物、话筒、每份文档、每支箭头、每个文件夹、循环卡片、五角星等均单独分割为独立 PNG，无多图粘连，PowerPoint 渲染图像经肉眼与指标双重核验无阴影伪影、无底层重影）
   - 静态检查：`uv run ruff check . && uv run ruff format --check . && uv run pyright` 0 errors, 0 warnings
