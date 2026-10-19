@@ -47,7 +47,7 @@ AI 生成的图本身没有“原始字体”和“原始数据”，像素级 1
 - **AC2.2**：所有坐标都是整数 EMU；单位换算只在 `pptkit/common/units.py` 一处实现（用 lint 规则或测试保证没有其他地方直接写换算常量）。
 
 ### F3 PPTX 生成器（IR → PPTX）
-- **AC3.1**：生成的文件能被 WPS（基准）和 Keynote 打开，不弹修复或报错窗口；用界面自动化脚本验证，并保存截图（见 D1）。
+- **AC3.1**：生成的文件能被 PowerPoint（基准）、WPS、Keynote 打开，不弹修复或报错窗口；PowerPoint 用 AppleScript 打开并导出验证，WPS 和 Keynote 用界面自动化脚本验证并保存截图（见 D1）。
 - **AC3.2**：文字是原生文本框，在 Keynote 里双击能直接编辑；形状是原生形状，能改填充色和尺寸。
 - **AC3.3**：生成的 PPTX 页面尺寸等于原图宽高比（16:9 输入对应 13.333in × 7.5in，其他比例按原比例生成）。
 - **AC3.4**：元素的前后层级和 IR 中的 `z_order` 一致。
@@ -100,7 +100,7 @@ OCR 定位文字 → 抹掉文字并补全背景 → 叠加可编辑文本框 �
 
 | 里程碑 | 目标 | 覆盖 | 前端 UI | 外部系统 |
 |---|---|---|---|---|
-| **M1 地基** | IR、PPTX 生成、渲染对比、合成基准、CLI 骨架；跑通“标准答案 IR → PPTX → 渲染”闭环 | F1、F2、F3、F4、F5、F9（AC9.1/9.4/9.5 骨架） | 否 | LibreOffice（渲染度量）、WPS 和 Keynote（兼容性界面自动化） |
+| **M1 地基** | IR、PPTX 生成、渲染对比、合成基准、CLI 骨架；跑通“标准答案 IR → PPTX → 渲染”闭环 | F1、F2、F3、F4、F5、F9（AC9.1/9.4/9.5 骨架） | 否 | PowerPoint（渲染度量，AppleScript）、LibreOffice（备用渲染器）、WPS 和 Keynote（兼容性界面自动化） |
 | **M2 矢量路径** | PowerPoint 导出的 PDF 高精度还原 | F6、F10 | 否 | 无 |
 | **M3 位图文字** | AI 生成的图片和 PDF 实现“背景 + 可编辑文字”，达到可用水平 | F7、F9（剩余 AC） | 否 | Gemini API、OCR、背景修复模型 |
 | **M4 位图形状** | 形状还原和图片分层，全量基准验收 | F8 | 否 | Gemini API |
@@ -122,6 +122,6 @@ OCR 定位文字 → 抹掉文字并补全背景 → 叠加可编辑文本框 �
 
 | 编号 | 问题 | 结论 | 理由与影响 |
 |---|---|---|---|
-| **D1** ✅ | 兼容性以哪个软件为准 | **以 WPS 为准**；同时保证 Keynote 能正常打开 | 本机已装 WPS 12.1。WPS Mac 没有 AppleScript 接口，没法自动导出渲染图，所以：① 度量用的渲染（F4）走 LibreOffice 无头模式；② WPS 兼容性（AC3.1）用 macOS 界面自动化（System Events）实现：自动打开文件、检测是否弹出修复或报错窗口、截图存档。**风险**：LibreOffice 和 WPS 的中文排版可能不一致，M1 要实测两者的 SSIM 差距，差距大时再考虑引入 WPS 截图参与度量 |
+| **D1** ✅ | 兼容性以哪个软件为准 | **以 PowerPoint 为准**（本机 16.114）；WPS 和 Keynote 只要求能正常打开、能编辑 | PowerPoint Mac 支持 AppleScript 的 `save as PNG` 和 `save as PDF`，所以**打分用的渲染（F4）直接用 PowerPoint**，测出来的就是用户实际看到的效果。LibreOffice 降为备用渲染器，在没有 PowerPoint 的环境下用，报告里会标注 `renderer`。**注意**：PowerPoint 运行在沙盒里，渲染时要先把文件复制到它的容器目录 `~/Library/Containers/com.microsoft.Powerpoint/Data/` 再导出；第一次运行需要用户在系统弹窗里允许终端控制 PowerPoint。WPS 和 Keynote 的兼容性（AC3.1）用 macOS 界面自动化（System Events）检测有没有弹出修复或报错窗口，并截图存档。*（变更记录：10:17 定为 WPS，10:38 用户装好 PowerPoint 后改为 PowerPoint）* |
 | **D2** ✅ | OCR 引擎 | **Apple Vision**，做成 adapter | v0.1 只支持 macOS，系统自带、免费、离线、中文效果好；以后支持 Windows 时换成 PaddleOCR |
 | **D3** ⏳ | 抹掉文字后怎么补全背景 | 建议**分级处理**：① 文字下面是纯色 → 直接填色；② 渐变或简单纹理 → OpenCV 修复（不用下载模型）；③ 照片或复杂背景 → LaMa（ONNX 版本，约 208MB，第一次用到时自动下载到 `~/.cache/pptkit/`，Apache-2.0 协议可以随产品分发）；Gemini 图像编辑作为可选增强 | AI 生成的幻灯片里，大部分文字放在纯色或渐变背景上，前两级就能覆盖，速度最快，也不会改动原图；只有文字压在照片上时才需要 LaMa。对用户来说没有任何手动安装步骤 |
