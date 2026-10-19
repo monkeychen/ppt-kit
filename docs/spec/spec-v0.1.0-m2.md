@@ -130,7 +130,7 @@ class PageQualityReport(BaseModel):
 | **T1** | `pptkit/adapters/ocr.py` Apple Vision OCR 适配器与文本行后处理清洗 | AC7.1 | - | done (`uv run pytest tests/unit/test_ocr.py`: 1 passed in 1.83s; ruff & pyright 0 errors) |
 | **T2** | `pptkit/raster/text_style.py` 笔画像素前景取色、字号估算、粗细/对齐判定与候选字体配置 | AC7.2, AC7.5 | T1 | done (`uv run pytest tests/unit/test_text_style.py`: 1 passed in 0.05s; ruff & pyright 0 errors) |
 | **T3** | `pptkit/raster/inpaint.py` 分级背景净化器与 OCR 残留字符复检 | AC7.3 | T1, T2 | done (`uv run pytest tests/unit/test_inpaint.py`: 1 passed in 0.45s, 0.0% remaining chars; ruff & pyright 0 errors) |
-| **T4** | `pptkit/raster/pipeline.py` & `refiner.py` 位图文字重建流水线与渲染对比单调微调 | AC7.1–7.5 | T1, T2, T3 | pending |
+| **T4** | `pptkit/raster/pipeline.py` & `refiner.py` 位图文字重建流水线与渲染对比单调微调 | AC7.1–7.5 | T1, T2, T3 | done (`uv run pytest tests/unit/test_refiner.py`: 1 passed in 0.48s; ruff & pyright 0 errors) |
 | **T5** | `pptkit/report/` & `pptkit/cli/app.py` 完整质量报告、`--pages`/`--max-iter`/`--vlm`、`pptkit report --needs-review` 及真实样图 E2E 验收 | AC9.2, AC9.3, AC9.4, AC10.1, AC10.2 | T4 | pending |
 
 ---
