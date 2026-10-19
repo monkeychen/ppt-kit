@@ -253,7 +253,7 @@ pptkit convert <input_path> -o <output_dir> [--route auto|vector|raster] [--prov
 | **T3** | `pptkit/ingest/` 5 种格式加载、vector/raster 路由判定、异常处理与 20 个测试样本 | AC1.1, AC1.2, AC1.3, AC1.4 | T2 | done (`uv run pytest tests/unit/test_ingest.py`: 4 passed in 0.81s, 20/20 route accuracy; ruff & pyright 0 errors) |
 | **T4** | `pptkit/writer/pptx_writer.py` IR → PPTX 生成器（含东亚字体、形状、图片、层级） | AC3.2, AC3.3, AC3.4 | T2 | done (`uv run pytest tests/unit/test_writer.py`: 1 passed in 0.86s; ruff & pyright 0 errors) |
 | **T5** | `pptkit/render/` PowerPoint & LibreOffice 渲染器 + SSIM / 区域 MAE / 差异热力图 + 真实软件兼容性校验脚本 | AC3.1, AC4.1, AC4.2 | T4 | done (`uv run pytest tests/unit/test_metrics.py tests/integration/test_render_powerpoint.py`: 2 passed; ruff & pyright 0 errors) |
-| **T6** | `benchmark/synthetic/` 合成样本生成器、自动评分器与 `benchmark/real/manifest.json` | AC5.1, AC5.2, AC5.3 | T4, T5 | pending |
+| **T6** | `benchmark/synthetic/` 合成样本生成器、自动评分器与 `benchmark/real/manifest.json` | AC5.1, AC5.2, AC5.3 | T4, T5 | done (`uv run pytest tests/unit/test_synthetic.py tests/unit/test_manifest.py`: 2 passed in 1.13s; ruff & pyright 0 errors) |
 | **T7** | `pptkit/cli/` Typer CLI 入口（`convert` 单文件/目录、API Key 门禁、单页容错与退出码）及 E2E 测试 | AC9.1, AC9.4, AC9.5 | T3, T4, T5 | pending |
 
 ---

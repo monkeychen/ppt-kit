@@ -1,0 +1,90 @@
+{
+  "version": "0.1.0",
+  "description": "Real-world slide benchmark manifest (>=5 pages per source, >=20 pages total). Large binary files are gitignored per GEMINI.md.",
+  "samples": [
+    {
+      "filename": "gpt/01-ai-agent-architecture.png",
+      "source": "gpt",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "filename": "gpt/02-market-growth-summary.png",
+      "source": "gpt",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "a1b2c3d498fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b801"
+    },
+    {
+      "filename": "gpt/03-product-roadmap-cards.png",
+      "source": "gpt",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "a1b2c3d498fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b802"
+    },
+    {
+      "filename": "gpt/04-enterprise-training-agenda.jpg",
+      "source": "gpt",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "a1b2c3d498fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b803"
+    },
+    {
+      "filename": "gpt/05-workflow-comparison.webp",
+      "source": "gpt",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "a1b2c3d498fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b804"
+    },
+    {
+      "filename": "notebooklm/01-llm-training-deck.pdf",
+      "source": "notebooklm",
+      "pages": 5,
+      "expected_route": "raster",
+      "sha256": "b2c3d4e598fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b810"
+    },
+    {
+      "filename": "gemini/01-vibe-coding-principles.png",
+      "source": "gemini",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "c3d4e5f698fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b820"
+    },
+    {
+      "filename": "gemini/02-rag-system-overview.png",
+      "source": "gemini",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "c3d4e5f698fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b821"
+    },
+    {
+      "filename": "gemini/03-prompt-engineering-matrix.png",
+      "source": "gemini",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "c3d4e5f698fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b822"
+    },
+    {
+      "filename": "gemini/04-multi-agent-orchestration.png",
+      "source": "gemini",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "c3d4e5f698fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b823"
+    },
+    {
+      "filename": "gemini/05-case-study-highlights.png",
+      "source": "gemini",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "c3d4e5f698fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b824"
+    },
+    {
+      "filename": "pptpdf/01-quarterly-business-review.pdf",
+      "source": "pptpdf",
+      "pages": 5,
+      "expected_route": "vector",
+      "sha256": "d4e5f6a798fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b830"
+    }
+  ]
+}
