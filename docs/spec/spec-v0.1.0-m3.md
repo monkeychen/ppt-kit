@@ -111,7 +111,7 @@ class LayerExtractionResult:
 | 编号 | 内容 | 覆盖 AC | 依赖 | 状态 |
 |---|---|---|---|---|
 | **T1** | `pptkit/raster/shapes.py` 纯色与描边几何形状检测、分类（`rect`/`round_rect`/`ellipse`/`line`/`right_arrow`）、置信度退化与背景填平 | AC8.1, AC8.3 | - | done (`uv run pytest tests/unit/test_shapes.py`: 2 passed in 0.29s; ruff & pyright 0 errors) |
-| **T2** | `pptkit/raster/layers.py` 独立插图/照片连通域分割、RGBA 透明背景抠图与背景填平 | AC8.2 | T1 | pending |
+| **T2** | `pptkit/raster/layers.py` 独立插图/照片连通域分割、RGBA 透明背景抠图与背景填平 | AC8.2 | T1 | done (`uv run pytest tests/unit/test_layers.py`: 1 passed in 0.33s; ruff & pyright 0 errors) |
 | **T3** | 将 `shapes` 与 `layers` 接入 `pptkit/raster/pipeline.py`，完成合成基准形状召回率/精确率集成测试与真实样图多图层 E2E 验收 | AC8.1, AC8.2, AC8.3 | T1, T2 | pending |
 
 ---
