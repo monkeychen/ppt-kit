@@ -81,7 +81,9 @@ def check_wps_compat(pptx_path: Path | str, out_dir: Path | str) -> AppCompatSta
         opened_ok=proc.returncode == 0,
         has_repair_or_error_dialog=proc.returncode != 0,
         screenshot_path=str(shot_path) if shot_path.exists() else None,
-        detail=proc.stderr.strip()
-        if proc.returncode != 0
-        else "Launched cleanly via open -a wpsoffice.app",
+        detail=(
+            proc.stderr.strip()
+            if proc.returncode != 0
+            else "Launched cleanly via open -a wpsoffice.app"
+        ),
     )

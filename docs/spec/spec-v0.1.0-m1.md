@@ -254,10 +254,35 @@ pptkit convert <input_path> -o <output_dir> [--route auto|vector|raster] [--prov
 | **T4** | `pptkit/writer/pptx_writer.py` IR → PPTX 生成器（含东亚字体、形状、图片、层级） | AC3.2, AC3.3, AC3.4 | T2 | done (`uv run pytest tests/unit/test_writer.py`: 1 passed in 0.86s; ruff & pyright 0 errors) |
 | **T5** | `pptkit/render/` PowerPoint & LibreOffice 渲染器 + SSIM / 区域 MAE / 差异热力图 + 真实软件兼容性校验脚本 | AC3.1, AC4.1, AC4.2 | T4 | done (`uv run pytest tests/unit/test_metrics.py tests/integration/test_render_powerpoint.py`: 2 passed; ruff & pyright 0 errors) |
 | **T6** | `benchmark/synthetic/` 合成样本生成器、自动评分器与 `benchmark/real/manifest.json` | AC5.1, AC5.2, AC5.3 | T4, T5 | done (`uv run pytest tests/unit/test_synthetic.py tests/unit/test_manifest.py`: 2 passed in 1.13s; ruff & pyright 0 errors) |
-| **T7** | `pptkit/cli/` Typer CLI 入口（`convert` 单文件/目录、API Key 门禁、单页容错与退出码）及 E2E 测试 | AC9.1, AC9.4, AC9.5 | T3, T4, T5 | pending |
+| **T7** | `pptkit/cli/` Typer CLI 入口（`convert` 单文件/目录、API Key 门禁、单页容错与退出码）及 E2E 测试 | AC9.1, AC9.4, AC9.5 | T3, T4, T5 | done (`uv run pytest tests/unit/test_cli.py tests/e2e/test_m1_pipeline.py`: 4 passed; ruff & pyright 0 errors) |
 
 ---
 
 ## 7. 界面与 F/AC 映射
 
 本里程碑不涉及前端 GUI（v0.1.0 仅包含 CLI，GUI 在 v0.2.0 实现），无需 HTML 原型。
+
+---
+
+## 8. 验收记录
+
+### 8.1 自动化测试运行结果
+
+| 测试层级 | 执行命令 | 结果 | 耗时 | 覆盖 AC |
+|---|---|---|---|---|
+| **单元测试** | `uv run pytest tests/unit` | **17 passed** (100%) | 1.33s | AC1.1–1.4, AC2.1–2.2, AC3.2–3.4, AC4.1–4.2, AC5.1–5.3, AC9.1, AC9.4–9.5 |
+| **集成测试（真机软件）** | `uv run pytest -m integration` | **2 passed** (100%) | 21.93s | AC3.1（PowerPoint / Keynote / WPS 打开无报错并截图至 `out/compat/`）, AC4.1–4.2（PowerPoint 连续渲染 SSIM 差值 < 0.001） |
+| **端到端测试（E2E）** | `uv run pytest tests/e2e` | **1 passed** (100%) | 21.34s | AC5.1, AC5.2, AC9.1（5 页合成基准生成 → PowerPoint 渲染 → 自动评分 → CLI `convert --json` 转换） |
+| **代码规范与类型检查** | `uv run ruff check . && uv run ruff format --check . && uv run pyright` | **0 errors, 0 warnings** | 0.8s | 全项目 |
+
+### 8.2 边界与异常路径覆盖核查
+- **不支持的格式（`.txt`）、加密 PDF（AES-256）、损坏 PDF/PNG**：单元测试 `test_ingest_error_on_encrypted_corrupted_unsupported` 与 CLI 测试验证全部拦截并输出可执行修复提示（如 `qpdf --decrypt`），退出码为 `1`（AC1.4）。
+- **无 API Key 时的路径隔离**：清空 `PPTKIT_GEMINI_API_KEY` / `GEMINI_API_KEY` 时，vector 页面正常转换（退出码 `0`），raster 页面报错提示环境变量名（退出码 `1`）；混合 PDF 中 vector 页成功、raster 页失败并隔离错误（退出码 `2`）（AC9.4, AC9.5）。
+- **坐标与单位强约束**：`StrictInt` 拒绝浮点或非正数 BBox，`test_no_unit_constants_outside_units_module` 扫描源码确保除 `units.py` 外无任何硬编码换算常量（AC2.2）。
+
+### 8.3 真实样本入库登记
+- 用户提供的首张真实 AI 生成幻灯片样本已复制至 `benchmark/real/other/01-ai-beginner-workflow.jpg`（2068×1162 JPEG，SHA256 `1176098764d1c86c8ea49ed0fc3bbf07de73ddbdd32f21b91dd1d658b694e10c`），并已登记入 `benchmark/real/manifest.json`。
+
+### 8.4 遗留问题
+- 无遗留缺陷。M1 地基全部就绪，待人类确认验收后进入 M2（矢量 PDF 解析路径）。
+

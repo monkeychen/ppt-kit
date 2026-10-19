@@ -85,6 +85,13 @@
       "pages": 5,
       "expected_route": "vector",
       "sha256": "d4e5f6a798fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b830"
+    },
+    {
+      "filename": "other/01-ai-beginner-workflow.jpg",
+      "source": "other",
+      "pages": 1,
+      "expected_route": "raster",
+      "sha256": "1176098764d1c86c8ea49ed0fc3bbf07de73ddbdd32f21b91dd1d658b694e10c"
     }
   ]
 }
