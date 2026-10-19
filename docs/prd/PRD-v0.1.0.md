@@ -89,7 +89,7 @@ OCR 定位文字 → 抹掉文字并补全背景 → 叠加可编辑文本框 �
 - **AC9.1**：`pptkit convert <file|dir> -o <outdir>` 能转换单个文件，也能批量转换目录；每个输入生成 `<name>.pptx` 和 `<name>.report.json`。
 - **AC9.2**：支持 `--route auto|vector|raster`、`--pages 1-3,5`、`--max-iter`、`--provider gemini|openai`、`--json`（stdout 只输出 JSON，方便 agent 调用）。
 - **AC9.3**：转换过程中显示每页进度和预计剩余时间；`--json` 模式下进度改为输出到 stderr。
-- **AC9.4**：没有配置 API Key 时，vector 路径照常工作；raster 路径报错，并提示设置方法（给出具体的环境变量名）。
+- **AC9.4**：没有配置 API Key 时，vector 路径和基于本地 Apple Vision + 分级背景修复的离线 raster 路径照常工作；仅当用户显式开启需要云端 VLM 的增强模式（`--vlm`）而未配 API Key 时报错，并提示设置方法（给出具体的环境变量名）。
 - **AC9.5**：单页失败不影响其他页；结束时汇总成功和失败页数，退出码区分“全部成功 / 部分失败 / 全部失败”（0 / 2 / 1）。
 
 ### F10 质量报告
@@ -101,11 +101,11 @@ OCR 定位文字 → 抹掉文字并补全背景 → 叠加可编辑文本框 �
 | 里程碑 | 目标 | 覆盖 | 前端 UI | 外部系统 |
 |---|---|---|---|---|
 | **M1 地基** | IR、PPTX 生成、渲染对比、合成基准、CLI 骨架；跑通“标准答案 IR → PPTX → 渲染”闭环 | F1、F2、F3、F4、F5、F9（AC9.1/9.4/9.5 骨架） | 否 | PowerPoint（渲染度量，AppleScript）、LibreOffice（备用渲染器）、WPS 和 Keynote（兼容性界面自动化） |
-| **M2 矢量路径** | PowerPoint 导出的 PDF 高精度还原 | F6、F10 | 否 | 无 |
-| **M3 位图文字** | AI 生成的图片和 PDF 实现“背景 + 可编辑文字”，达到可用水平 | F7、F9（剩余 AC） | 否 | Gemini API、OCR、背景修复模型 |
-| **M4 位图形状** | 形状还原和图片分层，全量基准验收 | F8 | 否 | Gemini API |
+| **M2 位图文字与报告** | AI 生成的图片和 PDF 实现“净空背景 + 可编辑原生文字 + 渲染对比微调”，跑通真实样图 `01-ai-beginner-workflow.jpg` | F7、F9（剩余 AC）、F10 | 否 | Apple Vision OCR、分级背景修复、PowerPoint 渲染器、可选 Gemini VLM |
+| **M3 位图形状与图片分层** | 形状（圆角框/胶囊/标签）还原为原生可编辑形状，插图/照片独立裁出分层 | F8 | 否 | OpenCV / 轮廓几何分析、可选 Gemini VLM |
+| **M4 矢量 PDF 路径** | PowerPoint 导出的矢量 PDF 高精度直接解析还原 | F6 | 否 | 无 |
 
-**为什么这么排**：M1 先把“打分尺”做出来，后面每一步优化都有数字可比，避免靠感觉调参。M2 难度最低、收益确定，能最早交付可用价值（覆盖 US3）。M3 能满足 NotebookLM 和 GPT 用户的主要需求（US1、US2），M4 补齐形状。
+**为什么这么排**：M1 先把“打分尺”做出来，后面每一步优化都有数字可比。M2/M3 优先攻克用户最高频、最迫切的 AI 生成位图幻灯片（覆盖 US1、US2，并在真实样图 `01-ai-beginner-workflow.jpg` 上直接验证），而且依托 macOS 原生 Apple Vision 实现离线零配置开箱即用；M4 再补齐矢量 PDF 直接解析（覆盖 US3）。*（变更记录：2026-10-19 M1 验收后经用户确认，将位图还原调整至 M2/M3 优先交付）*
 
 ## 5. 非目标（v0.1.0 不做）
 
