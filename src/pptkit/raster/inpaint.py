@@ -34,7 +34,7 @@ def inpaint_text_regions(image: Image.Image, boxes: list[OCRBox]) -> Image.Image
             max_dist = float(np.max(dists))
             if max_dist >= 18.0:
                 stroke_mask = dists >= max(22.0, max_dist * 0.28)
-                dilated = binary_dilation(stroke_mask, iterations=2)
+                dilated = np.asarray(binary_dilation(stroke_mask, iterations=2), dtype=bool)
                 # Estimate interior background from non-stroke pixels inside the box
                 non_stroke = patch[~dilated]
                 fill_color = np.median(non_stroke, axis=0) if len(non_stroke) > 0 else bg_rgb
