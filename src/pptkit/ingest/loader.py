@@ -1,15 +1,19 @@
 import io
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
+import pptx
 import pymupdf
 from PIL import Image, UnidentifiedImageError
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 from pptkit.common.units import page_size_to_emu
+from pptkit.render.renderer import render_pptx
 
 SUPPORTED_IMAGE_EXTS: set[str] = {".png", ".jpg", ".jpeg", ".webp"}
-SUPPORTED_EXTS: set[str] = SUPPORTED_IMAGE_EXTS | {".pdf"}
+SUPPORTED_EXTS: set[str] = SUPPORTED_IMAGE_EXTS | {".pdf", ".pptx"}
 
 
 class IngestError(Exception):
@@ -149,6 +153,140 @@ def _load_pdf_file(
         doc.close()
 
 
+def _shape_has_nonempty_text(shape: Any) -> bool:
+    if not getattr(shape, "has_text_frame", False):
+        return False
+    tf = getattr(shape, "text_frame", None)
+    if tf is None:
+        return False
+    return bool(getattr(tf, "text", "").strip())
+
+
+def _extract_slide_image_bytes(slide: Any) -> bytes | None:
+    for shape in slide.shapes:
+        if _shape_has_nonempty_text(shape):
+            return None
+
+    pictures = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    if len(pictures) == 1 and len(slide.shapes) == 1:
+        try:
+            return pictures[0].image.blob
+        except Exception:
+            return None
+
+    if len(slide.shapes) == 0:
+        try:
+            image_rels = [
+                rel.target_part
+                for rel in slide.part.rels.values()
+                if hasattr(rel, "reltype") and "image" in rel.reltype
+            ]
+            if len(image_rels) == 1 and hasattr(image_rels[0], "blob"):
+                return image_rels[0].blob
+        except Exception:
+            return None
+
+    return None
+
+
+def _load_pptx_file(
+    path: Path, route_override: Literal["auto", "vector", "raster"]
+) -> IngestedDocument:
+    try:
+        prs = pptx.Presentation(str(path))
+    except Exception as exc:
+        raise IngestError(
+            code="CORRUPTED_FILE",
+            message=f"无法打开 PPTX 文件：{path}",
+            hint="文件已损坏或不是合法的 PPTX 文件，请检查源文件完整性",
+        ) from exc
+
+    if len(prs.slides) == 0:
+        raise IngestError(
+            code="CORRUPTED_FILE",
+            message=f"PPTX 文件不包含任何页面：{path}",
+            hint="请检查 PPTX 文件是否为空或损坏",
+        )
+
+    slide_w_emu: int = int(getattr(prs, "slide_width", 0) or 12192000)
+    slide_h_emu: int = int(getattr(prs, "slide_height", 0) or 6858000)
+
+    extracted_blobs: list[bytes | None] = [
+        _extract_slide_image_bytes(slide) for slide in prs.slides
+    ]
+    all_direct = all(blob is not None for blob in extracted_blobs)
+
+    pages: list[IngestedPage] = []
+    if all_direct:
+        for idx, blob in enumerate(extracted_blobs):
+            assert blob is not None
+            try:
+                with Image.open(io.BytesIO(blob)) as img:
+                    rgb = img.convert("RGB")
+                    width_px, height_px = rgb.size
+                    buf = io.BytesIO()
+                    rgb.save(buf, format="PNG")
+                    png_bytes = buf.getvalue()
+            except Exception as exc:
+                raise IngestError(
+                    code="CORRUPTED_FILE",
+                    message=f"无法解析 PPTX 第 {idx + 1} 页的图片数据",
+                    hint="该幻灯片中的图片格式损坏，请检查源文件",
+                ) from exc
+
+            route: Literal["vector", "raster"] = (
+                "raster" if route_override == "auto" else route_override
+            )
+            pages.append(
+                IngestedPage(
+                    page_index=idx,
+                    route=route,
+                    width_px=width_px,
+                    height_px=height_px,
+                    width_emu=slide_w_emu,
+                    height_emu=slide_h_emu,
+                    raster_png_bytes=png_bytes,
+                )
+            )
+    else:
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir_str:
+                tmp_dir = Path(tmp_dir_str)
+                render_res = render_pptx(path, tmp_dir)
+                for idx, png_p in enumerate(render_res.png_paths):
+                    route_detected: Literal["vector", "raster"] = "raster"
+                    route = route_detected if route_override == "auto" else route_override
+
+                    with Image.open(png_p) as img:
+                        rgb = img.convert("RGB")
+                        width_px, height_px = rgb.size
+                        buf = io.BytesIO()
+                        rgb.save(buf, format="PNG")
+                        png_bytes = buf.getvalue()
+
+                    pages.append(
+                        IngestedPage(
+                            page_index=idx,
+                            route=route,
+                            width_px=width_px,
+                            height_px=height_px,
+                            width_emu=slide_w_emu,
+                            height_emu=slide_h_emu,
+                            raster_png_bytes=png_bytes,
+                        )
+                    )
+        except IngestError:
+            raise
+        except Exception as exc:
+            raise IngestError(
+                code="RENDER_FAILED",
+                message=f"无法渲染 PPTX 页面：{exc}",
+                hint="需要 Microsoft PowerPoint 或 LibreOffice 进行幻灯片无头渲染",
+            ) from exc
+
+    return IngestedDocument(source_path=path, pages=pages)
+
+
 def load_input(
     path: Path | str, route_override: Literal["auto", "vector", "raster"] = "auto"
 ) -> IngestedDocument:
@@ -165,9 +303,11 @@ def load_input(
         raise IngestError(
             code="UNSUPPORTED_FORMAT",
             message=f"不支持的文件格式：{ext or '<无扩展名>'}",
-            hint="支持的格式：.png, .jpg, .jpeg, .webp, .pdf",
+            hint="支持的格式：.png, .jpg, .jpeg, .webp, .pdf, .pptx",
         )
 
     if ext == ".pdf":
         return _load_pdf_file(file_path, route_override)
+    if ext == ".pptx":
+        return _load_pptx_file(file_path, route_override)
     return _load_image_file(file_path, route_override)

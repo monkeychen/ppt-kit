@@ -1,9 +1,11 @@
 import io
 from pathlib import Path
 
+import pptx
 import pymupdf
 import pytest
 from PIL import Image, ImageDraw
+from pptx.util import Inches
 
 from pptkit.ingest.loader import IngestError, load_input
 
@@ -37,7 +39,21 @@ def _create_raster_pdf(path: Path, pages: int = 1) -> None:
     doc.close()
 
 
-def test_load_five_formats_page_count_matches(tmp_path: Path) -> None:
+def _create_raster_pptx(path: Path, pages: int = 1) -> None:
+    prs = pptx.Presentation()
+    for i in range(pages):
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        buf = io.BytesIO()
+        img = Image.new("RGB", (640, 360), color=(50 * (i + 1), 100, 150))
+        draw = ImageDraw.Draw(img)
+        draw.text((50, 50), f"Raster Slide {i + 1}", fill=(255, 255, 255))
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        slide.shapes.add_picture(buf, Inches(0), Inches(0), prs.slide_width, prs.slide_height)
+    prs.save(str(path))
+
+
+def test_load_six_formats_page_count_matches(tmp_path: Path) -> None:
     formats = [
         ("sample.png", "PNG"),
         ("sample.jpg", "JPEG"),
@@ -57,6 +73,14 @@ def test_load_five_formats_page_count_matches(tmp_path: Path) -> None:
     _create_vector_pdf(pdf_path, pages=3)
     pdf_doc = load_input(pdf_path)
     assert len(pdf_doc.pages) == 3
+
+    pptx_path = tmp_path / "sample.pptx"
+    _create_raster_pptx(pptx_path, pages=2)
+    pptx_doc = load_input(pptx_path)
+    assert len(pptx_doc.pages) == 2
+    assert pptx_doc.pages[0].route == "raster"
+    assert pptx_doc.pages[1].route == "raster"
+    assert len(pptx_doc.pages[0].raster_png_bytes) > 0
 
 
 def test_route_detection_vector_vs_raster_and_mixed_pdf(tmp_path: Path) -> None:
@@ -162,4 +186,18 @@ def test_ingest_error_on_encrypted_corrupted_unsupported(tmp_path: Path) -> None
     bad_png.write_bytes(b"not a valid png")
     with pytest.raises(IngestError) as exc_info:
         load_input(bad_png)
+    assert exc_info.value.code == "CORRUPTED_FILE"
+
+    # 4. Corrupted PPTX
+    bad_pptx = tmp_path / "corrupted.pptx"
+    bad_pptx.write_bytes(b"not a valid zip or pptx")
+    with pytest.raises(IngestError) as exc_info:
+        load_input(bad_pptx)
+    assert exc_info.value.code == "CORRUPTED_FILE"
+
+    # 5. Empty PPTX (0 slides)
+    empty_pptx = tmp_path / "empty.pptx"
+    pptx.Presentation().save(str(empty_pptx))
+    with pytest.raises(IngestError) as exc_info:
+        load_input(empty_pptx)
     assert exc_info.value.code == "CORRUPTED_FILE"

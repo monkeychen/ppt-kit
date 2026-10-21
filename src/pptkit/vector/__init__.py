@@ -1,0 +1,1 @@
+"""Vector PDF parsing package."""

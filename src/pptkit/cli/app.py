@@ -10,13 +10,14 @@ from typing import Annotated, Literal
 import typer
 
 from pptkit.ingest.loader import SUPPORTED_EXTS, IngestError, load_input
-from pptkit.ir.models import Background, BBox, ImageElement, PresentationIR, SlideIR
+from pptkit.ir.models import PresentationIR, SlideIR
 from pptkit.raster.pipeline import reconstruct_raster_slide
 from pptkit.report.reporter import (
     DocumentQualityReport,
     PageQualityReport,
     filter_needs_review,
 )
+from pptkit.vector.parser import parse_vector_pdf_page
 from pptkit.writer.pptx_writer import write_pptx
 
 app = typer.Typer(
@@ -160,41 +161,33 @@ def _convert_single_file(
                     )
                 )
             else:
-                # Vector fallback placeholder until M4 vector parser
-                bg_copy = assets_dir / f"vec_page_{page.page_index:03d}.png"
-                bg_copy.write_bytes(page.raster_png_bytes)
-                slide_ir = SlideIR(
+                # Vector PDF direct parser (M4)
+                vec_work_dir = assets_dir / f"p{page.page_index:03d}"
+                vec_res = parse_vector_pdf_page(
+                    pdf_path=src_file,
                     page_index=page.page_index,
-                    route=page.route,
-                    width_emu=page.width_emu,
-                    height_emu=page.height_emu,
-                    background=Background(fill_type="solid", color_hex="#FFFFFF"),
-                    elements=[
-                        ImageElement(
-                            id=f"p{page.page_index}-fallback-bg",
-                            bbox=BBox(
-                                x=0,
-                                y=0,
-                                width=page.width_emu,
-                                height=page.height_emu,
-                            ),
-                            z_order=0,
-                            image_path=str(bg_copy),
-                            source="fallback",
-                            degraded=True,
-                        )
-                    ],
+                    work_dir=vec_work_dir,
                 )
-                slides_ir.append(slide_ir)
+                slides_ir.append(vec_res.slide_ir)
                 succeeded += 1
                 elapsed = round(time.perf_counter() - t0, 4)
+
+                editable_count = sum(
+                    1 for e in vec_res.slide_ir.elements if not getattr(e, "degraded", False)
+                )
+                degraded_count = sum(
+                    1 for e in vec_res.slide_ir.elements if getattr(e, "degraded", False)
+                )
+
                 page_reports.append(
                     PageQualityReport(
                         page_index=page.page_index,
                         route=page.route,
                         status="ok",
-                        editable_elements=0,
-                        degraded_elements=1,
+                        editable_elements=editable_count,
+                        degraded_elements=degraded_count,
+                        low_confidence_elements=vec_res.low_confidence_ids,
+                        missing_fonts=vec_res.missing_fonts,
                         elapsed_sec=elapsed,
                         model_calls=0,
                     )
@@ -210,6 +203,8 @@ def _convert_single_file(
             )
 
         pptx_out = out_dir / f"{src_file.stem}.pptx"
+        if src_file.resolve() == pptx_out.resolve():
+            pptx_out = out_dir / f"{src_file.stem}.converted.pptx"
         if slides_ir:
             pres_ir = PresentationIR(
                 source_path=str(src_file),
@@ -221,7 +216,7 @@ def _convert_single_file(
 
     doc_report = DocumentQualityReport(
         source=str(src_file),
-        output_pptx=str(out_dir / f"{src_file.stem}.pptx") if succeeded > 0 else None,
+        output_pptx=str(pptx_out) if succeeded > 0 else None,
         total_pages=len(target_pages),
         succeeded_pages=succeeded,
         failed_pages=failed,

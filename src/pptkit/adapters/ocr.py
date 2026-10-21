@@ -31,13 +31,44 @@ var out: [[String: Any]] = []
 for obs in req.results ?? [] {
     guard let top = obs.topCandidates(1).first else { continue }
     let b = obs.boundingBox
+    var ox = b.origin.x
+    var oy = 1.0 - b.origin.y - b.size.height
+    var ow = b.size.width
+    var oh = b.size.height
+
+    let s = top.string
+    if s.count >= 2 {
+        let i0 = s.startIndex
+        let i1 = s.index(after: i0)
+        let i2 = s.index(after: i1)
+        let c0 = s[i0]
+        let c1 = s[i1]
+        if let sc0 = c0.unicodeScalars.first,
+           let sc1 = c1.unicodeScalars.first,
+           (0x4E00...0x9FA5).contains(sc0.value),
+           (0x4E00...0x9FA5).contains(sc1.value) {
+            if let b0 = try? top.boundingBox(for: i0..<i1),
+               let b1 = try? top.boundingBox(for: i1..<i2) {
+                let w0 = b0.boundingBox.size.width
+                let w1 = b1.boundingBox.size.width
+                if w0 > 1.8 * w1 && w1 > 0.005 {
+                    let shift = b1.boundingBox.origin.x - w1 - b.origin.x
+                    if shift > 0 {
+                        ox += shift
+                        ow = max(0.01, ow - shift)
+                    }
+                }
+            }
+        }
+    }
+
     out.append([
         "text": top.string,
         "confidence": top.confidence,
-        "x": b.origin.x,
-        "y": 1.0 - b.origin.y - b.size.height,
-        "w": b.size.width,
-        "h": b.size.height
+        "x": ox,
+        "y": oy,
+        "w": ow,
+        "h": oh
     ])
 }
 let data = try JSONSerialization.data(withJSONObject: out, options: [])
@@ -45,7 +76,10 @@ print(String(data: data, encoding: .utf8)!)
 """
 
 MERGED_BADGE_PATTERN = re.compile(r"^([0oO]\d|\d{2})\s+(.+)$")
-STRAY_ICON_PREFIX_PATTERN = re.compile(r"^(?:太|★|☆)\s+(.+)$")
+STRAY_ICON_PREFIX_PATTERN = re.compile(
+    r"^(?:(?:太|★|☆|√|✔|✓|•|·|◎|○|●|◐|◑|☑|☐|□|■|▲|▼|◆|◇)\s*|[vVoOgGcCeE@#§2]\s+)([\u4e00-\u9fa5].+)$"
+)
+KNOWN_ACRONYMS = {"AI", "UI", "IT", "OK", "PPT", "API", "SDK", "PC", "OS"}
 
 
 @dataclass
@@ -85,15 +119,43 @@ def clean_ocr_boxes(boxes: list[OCRBox]) -> list[OCRBox]:
 
         x, y, w, h = box.bbox_px
 
-        # 0. Drop tiny low-confidence 1-2 char non-digit ASCII noise from micro-icons
+        # 0. Drop low-confidence 1-2 char ASCII noise from micro-icons (e.g. 'Ei', 'M4', 'L', 'Do')
         if (
             len(text) <= 2
             and text.isascii()
             and not text.isdigit()
+            and text.upper() not in KNOWN_ACRONYMS
             and box.confidence <= 0.55
-            and max(w, h) <= 36
+            and max(w, h) <= 90
         ):
             continue
+
+        # 0b. Drop large low-confidence hallucinations on illustrations (e.g. '国皿' on calculator)
+        if len(text) <= 2 and box.confidence <= 0.35 and max(w, h) >= 90:
+            continue
+
+        # 0c. Drop standalone graphic bullet/check icon glyphs
+        if len(text) == 1 and text in {
+            "◎",
+            "○",
+            "●",
+            "★",
+            "☆",
+            "•",
+            "·",
+            "太",
+            "√",
+            "✔",
+            "✓",
+            "□",
+            "■",
+            "☑",
+            "☐",
+        }:
+            continue
+
+        # Fix missing math inequality symbol omitted by Vision OCR in Chinese comparison lines
+        text = re.sub(r"(自检)\s+(人工)", r"\1 ≠ \2", text)
 
         # 1. Split merged two-digit badge prefix like "o7 回答AI跟你提出的问题"
         m_badge = MERGED_BADGE_PATTERN.match(text)
@@ -125,11 +187,11 @@ def clean_ocr_boxes(boxes: list[OCRBox]) -> list[OCRBox]:
             )
             continue
 
-        # 2. Strip stray star/icon character misrecognized at start of banner text
+        # 2. Strip stray star/icon character misrecognized at start of banner or title text
         m_star = STRAY_ICON_PREFIX_PATTERN.match(text)
         if m_star:
             rest = m_star.group(1).strip()
-            icon_shift = min(int(h * 1.15), max(int(w * 0.055), 20))
+            icon_shift = max(20, min(int(round(h * 1.18)), int(w * 0.45)))
             cleaned.append(
                 OCRBox(
                     text=rest,
@@ -211,4 +273,34 @@ class AppleVisionOCRAdapter:
                 )
             )
 
-        return clean_ocr_boxes(boxes) if clean else boxes
+        if clean:
+            refined_boxes: list[OCRBox] = []
+            cache_dir = Path.home() / ".cache" / "pptkit"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            for box in boxes:
+                bx, by, bw, bh = box.bbox_px
+                if box.confidence <= 0.35 and bh >= 95 and bw >= 100:
+                    slice_h = min(bh, max(45, int(bh * 0.52)))
+                    with Image.open(img_p) as im:
+                        slice_img = im.crop(
+                            (bx, by, min(width_px, bx + bw), min(height_px, by + slice_h))
+                        )
+                    tmp_slice = cache_dir / "tmp_slice.png"
+                    slice_img.save(tmp_slice)
+                    sub_boxes = self.recognize(tmp_slice, clean=False)
+                    high_conf_subs = [sb for sb in sub_boxes if sb.confidence >= 0.70]
+                    if high_conf_subs:
+                        for sb in high_conf_subs:
+                            sx, sy, sw, sh = sb.bbox_px
+                            refined_boxes.append(
+                                OCRBox(
+                                    text=sb.text,
+                                    bbox_px=(bx + sx, by + sy, sw, sh),
+                                    confidence=sb.confidence,
+                                )
+                            )
+                        continue
+                refined_boxes.append(box)
+            return clean_ocr_boxes(refined_boxes)
+
+        return boxes

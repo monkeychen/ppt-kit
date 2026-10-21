@@ -4,7 +4,7 @@ from typing import Literal
 
 from PIL import Image
 
-from pptkit.adapters.ocr import AppleVisionOCRAdapter, clean_ocr_boxes
+from pptkit.adapters.ocr import AppleVisionOCRAdapter
 from pptkit.common.units import page_size_to_emu, px_to_emu
 from pptkit.ir.models import (
     Background,
@@ -64,8 +64,7 @@ def reconstruct_raster_slide(
     width_emu, height_emu = page_size_to_emu(width_px, height_px)
 
     ocr = AppleVisionOCRAdapter()
-    raw_boxes = ocr.recognize(img_p, clean=False)
-    cleaned_boxes = clean_ocr_boxes(raw_boxes)
+    cleaned_boxes = ocr.recognize(img_p, clean=True)
 
     # 1. Inpaint text strokes using cleaned_boxes
     text_cleaned_img = inpaint_text_regions(orig_img, cleaned_boxes)

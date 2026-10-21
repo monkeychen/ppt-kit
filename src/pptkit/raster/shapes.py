@@ -567,30 +567,23 @@ def extract_raster_shapes(
                             corner_radius_ratio=0.04,
                         )
                     )
-                    if is_large_card:
-                        border_only = np.zeros_like(comp_sub, dtype=bool)
-                        border_only[card_top_offset:, :] = sub_mask & perim_mask
-                        dil_border = np.asarray(
-                            binary_dilation(border_only, iterations=2), dtype=bool
-                        )
-                        target_bg = page_bg_rgb if inner_diff_from_page >= 6.0 else card_inner_rgb
-                        residual[y0:y1, x0:x1][dil_border] = target_bg
-                        if inner_diff_from_page >= 6.0:
-                            # Replace tinted interior with page_bg_rgb while keeping nested icons
-                            card_patch = arr[y0 + card_top_offset : y1, x0:x1]
-                            tint_mask = np.linalg.norm(card_patch - card_inner_rgb, axis=-1) <= 22.0
-                            residual[y0 + card_top_offset : y1, x0:x1][tint_mask] = page_bg_rgb
-                        if cap_box_coords is not None:
-                            cx0_c, cx1_c, cy1_c = cap_box_coords
-                            kx0 = max(0, cx0_c - 4)
-                            kx1 = min(w, cx1_c + 4)
-                            ky1 = min(h, cy1_c + 4)
-                            residual[y0 : y0 + card_top_offset, x0 + kx0 : x0 + kx1] = page_bg_rgb
-                            residual[y0 + card_top_offset : y0 + ky1, x0 + kx0 : x0 + kx1] = (
-                                target_bg
-                            )
-                    else:
-                        residual[y0:y1, x0:x1] = local_bg_rgb
+                    border_only = np.zeros_like(comp_sub, dtype=bool)
+                    border_only[card_top_offset:, :] = sub_mask & perim_mask
+                    dil_border = np.asarray(binary_dilation(border_only, iterations=2), dtype=bool)
+                    target_bg = page_bg_rgb if inner_diff_from_page >= 6.0 else card_inner_rgb
+                    residual[y0:y1, x0:x1][dil_border] = target_bg
+                    if inner_diff_from_page >= 6.0:
+                        # Replace tinted interior with page_bg_rgb while keeping nested icons
+                        card_patch = arr[y0 + card_top_offset : y1, x0:x1]
+                        tint_mask = np.linalg.norm(card_patch - card_inner_rgb, axis=-1) <= 22.0
+                        residual[y0 + card_top_offset : y1, x0:x1][tint_mask] = page_bg_rgb
+                    if cap_box_coords is not None:
+                        cx0_c, cx1_c, cy1_c = cap_box_coords
+                        kx0 = max(0, cx0_c - 4)
+                        kx1 = min(w, cx1_c + 4)
+                        ky1 = min(h, cy1_c + 4)
+                        residual[y0 : y0 + card_top_offset, x0 + kx0 : x0 + kx1] = page_bg_rgb
+                        residual[y0 + card_top_offset : y0 + ky1, x0 + kx0 : x0 + kx1] = target_bg
                     continue
 
         # 3. Solid / stroked-solid geometric shape candidate (including arrows and solid containers)

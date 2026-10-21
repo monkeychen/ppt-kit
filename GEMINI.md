@@ -1,6 +1,6 @@
 # ppt-kit 项目规范
 
-> 把「图片版 PPT」（AI 生成的幻灯片图片、NotebookLM 导出的 PDF、PowerPoint 导出的 PDF）还原为**可编辑**的 PPTX。
+> 把「图片版 PPT」（AI 生成的幻灯片图片、NotebookLM 导出的 PDF、PowerPoint 导出的 PDF、纯图片版 PPTX）还原为**可编辑**的 PPTX。
 > 开发流程严格遵循 `~/.gemini/dev-workflow.md`；本文件只写本项目特有的约定。
 
 ## 1. 核心原则

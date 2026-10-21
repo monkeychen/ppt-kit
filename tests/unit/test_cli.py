@@ -2,9 +2,11 @@ import io
 import json
 from pathlib import Path
 
+import pptx
 import pymupdf
 import pytest
 from PIL import Image, ImageDraw
+from pptx.util import Inches
 from typer.testing import CliRunner
 
 from pptkit.cli.app import app
@@ -30,6 +32,20 @@ def _create_raster_png(path: Path) -> None:
     path.write_bytes(buf.getvalue())
 
 
+def _create_raster_pptx(path: Path, pages: int = 1) -> None:
+    prs = pptx.Presentation()
+    for i in range(pages):
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        buf = io.BytesIO()
+        img = Image.new("RGB", (640, 360), color=(50 * (i + 1), 100, 150))
+        draw = ImageDraw.Draw(img)
+        draw.text((50, 50), f"Raster Slide {i + 1}", fill=(255, 255, 255))
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        slide.shapes.add_picture(buf, Inches(0), Inches(0), prs.slide_width, prs.slide_height)
+    prs.save(str(path))
+
+
 def test_cli_convert_file_and_dir_outputs_pptx_and_report(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -37,8 +53,10 @@ def test_cli_convert_file_and_dir_outputs_pptx_and_report(
     in_dir.mkdir()
     pdf_file = in_dir / "deck.pdf"
     png_file = in_dir / "slide.png"
+    pptx_file = in_dir / "album.pptx"
     _create_vector_pdf(pdf_file)
     _create_raster_png(png_file)
+    _create_raster_pptx(pptx_file, pages=1)
 
     out_single = tmp_path / "out_single"
     res_single = runner.invoke(
@@ -51,6 +69,23 @@ def test_cli_convert_file_and_dir_outputs_pptx_and_report(
     rep = json.loads(report_path.read_text(encoding="utf-8"))
     assert rep["pages"][0]["route"] == "vector"
 
+    # Single PPTX conversion
+    out_pptx = tmp_path / "out_pptx"
+    res_pptx = runner.invoke(
+        app, ["convert", str(pptx_file), "-o", str(out_pptx), "--max-iter", "0"]
+    )
+    assert res_pptx.exit_code == 0
+    assert (out_pptx / "album.pptx").exists()
+    assert (out_pptx / "album.report.json").exists()
+
+    # In-place conversion safety check (output to same dir does not overwrite original)
+    res_inplace = runner.invoke(
+        app, ["convert", str(pptx_file), "-o", str(in_dir), "--max-iter", "0"]
+    )
+    assert res_inplace.exit_code == 0
+    assert (in_dir / "album.converted.pptx").exists()
+
+    # Batch directory conversion
     out_batch = tmp_path / "out_batch"
     res_batch = runner.invoke(
         app, ["convert", str(in_dir), "-o", str(out_batch), "--max-iter", "0"]
@@ -60,6 +95,8 @@ def test_cli_convert_file_and_dir_outputs_pptx_and_report(
     assert (out_batch / "deck.report.json").exists()
     assert (out_batch / "slide.pptx").exists()
     assert (out_batch / "slide.report.json").exists()
+    assert (out_batch / "album.pptx").exists()
+    assert (out_batch / "album.report.json").exists()
 
 
 def test_cli_pages_filter_progress_stderr_and_vlm_key_check(
