@@ -77,23 +77,32 @@
 
 ## 🚀 快速开始
 
-### 运行环境
-- **操作系统**：macOS 13+（当前位图 OCR 依赖 macOS Apple Vision 框架）
-- **Python 版本**：Python 3.11+
-- **包管理器**：推荐使用 [uv](https://github.com/astral-sh/uv)
+### 方式一：下载独立免环境可执行包（免装 Python，解压即用）
 
-### 安装
+直接前往 [GitHub Releases](https://github.com/monkeychen/ppt-kit/releases/latest) 下载对应系统架构的预编译安装包：
+
+| 平台 | 下载包 | 说明 |
+|---|---|---|
+| 🍏 **macOS (Apple Silicon)** | [pptkit-macos-arm64.tar.gz](https://github.com/monkeychen/ppt-kit/releases/latest/download/pptkit-macos-arm64.tar.gz) | 解压后直接在终端执行 `./pptkit` |
+| 🪟 **Windows (x86_64)** | [pptkit-windows-x86_64.zip](https://github.com/monkeychen/ppt-kit/releases/latest/download/pptkit-windows-x86_64.zip) | 解压后直接双击或 CMD 执行 `pptkit.exe` |
+| 🐧 **Linux (x86_64)** | [pptkit-linux-x86_64.tar.gz](https://github.com/monkeychen/ppt-kit/releases/latest/download/pptkit-linux-x86_64.tar.gz) | 解压后 `./pptkit` 运行 |
+
+### 方式二：通过 uv / pip 安装（开发者推荐）
 
 ```bash
-# 1. 克隆仓库
+# 推荐：一键安装为独立全局命令行工具
+uv tool install https://github.com/monkeychen/ppt-kit/releases/latest/download/pptkit-0.1.0-py3-none-any.whl
+
+# 或标准 pip 安装
+pip install https://github.com/monkeychen/ppt-kit/releases/latest/download/pptkit-0.1.0-py3-none-any.whl
+```
+
+### 方式三：源码本地开发调试
+
+```bash
 git clone https://github.com/monkeychen/ppt-kit.git
 cd ppt-kit
-
-# 2. 安装项目依赖
 uv sync
-
-# 3. （推荐）全局安装为独立命令行工具
-uv tool install .
 ```
 
 ---
