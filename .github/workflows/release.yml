@@ -30,9 +30,20 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
 
-  build-macos-binary:
-    name: Build Standalone macOS Binary
-    runs-on: macos-latest
+  build-binaries:
+    name: Build Standalone Binary (${{ matrix.os }})
+    needs: build-wheel
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            asset_name: pptkit-macos-arm64.tar.gz
+          - os: ubuntu-latest
+            asset_name: pptkit-linux-x86_64.tar.gz
+          - os: windows-latest
+            asset_name: pptkit-windows-x86_64.zip
+
     steps:
       - uses: actions/checkout@v4
 
@@ -47,12 +58,19 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Package with PyInstaller
+      - name: Build Standalone Binary (Unix)
+        if: runner.os != 'Windows'
         run: |
           uv run --with pyinstaller pyinstaller --noconfirm --onefile --name pptkit src/pptkit/__main__.py
-          tar -czvf pptkit-macos-arm64.tar.gz -C dist pptkit
+          tar -czvf ${{ matrix.asset_name }} -C dist pptkit
 
-      - name: Upload Binary to Release
+      - name: Build Standalone Binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          uv run --with pyinstaller pyinstaller --noconfirm --onefile --name pptkit src/pptkit/__main__.py
+          Compress-Archive -Path dist/pptkit.exe -DestinationPath ${{ matrix.asset_name }}
+
+      - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: pptkit-macos-arm64.tar.gz
+          files: ${{ matrix.asset_name }}
