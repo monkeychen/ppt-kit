@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-wheel:
+    name: Build Python Wheel & Sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Build Wheel & Tarball
+        run: uv build
+
+      - name: Release Wheel on GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+
+  build-macos-binary:
+    name: Build Standalone macOS Binary
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Package with PyInstaller
+        run: |
+          uv run --with pyinstaller pyinstaller --noconfirm --onefile --name pptkit src/pptkit/__main__.py
+          tar -czvf pptkit-macos-arm64.tar.gz -C dist pptkit
+
+      - name: Upload Binary to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: pptkit-macos-arm64.tar.gz

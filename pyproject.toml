@@ -2,7 +2,8 @@
 name = "pptkit"
 version = "0.1.0"
 description = "Convert slide images and PDFs into editable PPTX presentations"
-readme = "GEMINI.md"
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.7.0",
