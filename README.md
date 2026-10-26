@@ -90,11 +90,13 @@
 ### 方式二：通过 uv / pip 安装（开发者推荐）
 
 ```bash
-# 推荐：一键安装为独立全局命令行工具
-uv tool install https://github.com/monkeychen/ppt-kit/releases/latest/download/pptkit-0.1.0-py3-none-any.whl
+# 推荐方式一：通过 GitHub 仓库直接一键全局安装
+uv tool install git+https://github.com/monkeychen/ppt-kit.git
 
+# 方式二：通过最新 Release Wheel 安装
+uv tool install https://github.com/monkeychen/ppt-kit/releases/download/v0.2.1/pptkit-0.2.1-py3-none-any.whl
 # 或标准 pip 安装
-pip install https://github.com/monkeychen/ppt-kit/releases/latest/download/pptkit-0.1.0-py3-none-any.whl
+pip install https://github.com/monkeychen/ppt-kit/releases/download/v0.2.1/pptkit-0.2.1-py3-none-any.whl
 ```
 
 ### 方式三：源码本地开发调试
