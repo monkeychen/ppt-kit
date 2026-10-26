@@ -14,6 +14,8 @@ class PageQualityReport(BaseModel):
     degraded_elements: int = 0
     low_confidence_elements: list[str] = Field(default_factory=list)
     missing_fonts: list[str] = Field(default_factory=list)
+    tables_count: int = 0
+    table_cells_count: int = 0
     elapsed_sec: float = 0.0
     model_calls: int = 0
     error: str | None = None

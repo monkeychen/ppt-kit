@@ -29,6 +29,8 @@ def test_report_model_and_needs_review_filter() -> None:
         degraded_elements=2,
         low_confidence_elements=["p1-tb-003"],
         missing_fonts=["CustomFont"],
+        tables_count=1,
+        table_cells_count=8,
         elapsed_sec=2.1,
         model_calls=1,
     )
@@ -43,3 +45,6 @@ def test_report_model_and_needs_review_filter() -> None:
 
     needs = filter_needs_review(doc_rep, ssim_threshold=0.90)
     assert [p.page_index for p in needs] == [1]
+    assert doc_rep.pages[0].tables_count == 0
+    assert doc_rep.pages[1].tables_count == 1
+    assert doc_rep.pages[1].table_cells_count == 8

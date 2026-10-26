@@ -156,9 +156,11 @@ def _convert_single_file(
                         text_region_mae=rec.text_region_mae,
                         heatmap_path=rec.heatmap_path,
                         editable_elements=len(rec.slide_ir.elements),
-                        degraded_elements=0,
+                        degraded_elements=rec.degraded_count,
                         low_confidence_elements=rec.low_confidence_ids or [],
                         missing_fonts=[],
+                        tables_count=rec.tables_count,
+                        table_cells_count=rec.table_cells_count,
                         elapsed_sec=elapsed,
                         model_calls=1 if use_vlm else 0,
                     )

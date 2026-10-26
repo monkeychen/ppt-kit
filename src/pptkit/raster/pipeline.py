@@ -19,6 +19,7 @@ from pptkit.raster.inpaint import inpaint_text_regions
 from pptkit.raster.layers import extract_image_layers
 from pptkit.raster.refiner import refine_slide_textboxes
 from pptkit.raster.shapes import extract_raster_shapes
+from pptkit.raster.table import extract_raster_tables
 from pptkit.raster.text_style import estimate_text_runs
 from pptkit.render.metrics import compare_slide_images
 from pptkit.render.renderer import render_pptx
@@ -34,6 +35,8 @@ class RasterReconstructionResult:
     heatmap_path: str | None = None
     low_confidence_ids: list[str] = field(default_factory=list)
     degraded_count: int = 0
+    tables_count: int = 0
+    table_cells_count: int = 0
 
 
 def _infer_alignment(
@@ -70,15 +73,27 @@ def reconstruct_raster_slide(
     # 1. Inpaint text strokes using cleaned_boxes
     text_cleaned_img = inpaint_text_regions(orig_img, cleaned_boxes)
 
-    # 2. Extract editable geometric shapes (containers, capsules, badges, lines, arrows)
+    # 2. Extract editable tables (grid lines, cells, table inpainting)
+    table_res = extract_raster_tables(
+        text_cleaned_img=text_cleaned_img,
+        orig_img=orig_img,
+        ocr_boxes=cleaned_boxes,
+        slide_width_emu=width_emu,
+        slide_height_emu=height_emu,
+        page_index=page_index,
+        candidate_fonts=candidate_fonts,
+        work_dir=w_dir,
+    )
+
+    # 3. Extract editable geometric shapes from table_res.cleaned_image
     shape_res = extract_raster_shapes(
-        text_cleaned_img,
+        table_res.cleaned_image,
         slide_width_emu=width_emu,
         slide_height_emu=height_emu,
         page_index=page_index,
     )
 
-    # 3. Extract standalone illustration / icon layers as RGBA PNGs and clear base background
+    # 4. Extract standalone illustration / icon layers as RGBA PNGs and clear base background
     layer_res = extract_image_layers(
         shape_res.residual_image,
         work_dir=w_dir,
@@ -92,11 +107,17 @@ def reconstruct_raster_slide(
     layer_res.final_bg_image.save(cleaned_bg_path)
 
     elements: list[SlideElement] = []
+    elements.extend(table_res.tables)
     elements.extend(shape_res.shapes)
     elements.extend(layer_res.images)
+    elements.extend(table_res.degraded_tables)
+
     low_conf_ids: list[str] = []
+    low_conf_ids.extend(table_res.low_confidence_ids)
 
     for idx, box in enumerate(cleaned_boxes):
+        if idx in table_res.used_box_indices:
+            continue
         x_px, y_px, w_px, h_px = box.bbox_px
         runs = estimate_text_runs(
             orig_img,
@@ -200,6 +221,7 @@ def reconstruct_raster_slide(
             max_iter=min(max_iter, 1),
         )
 
+    total_table_cells = sum(t.rows * t.cols for t in table_res.tables)
     return RasterReconstructionResult(
         slide_ir=slide_ir,
         cleaned_bg_path=cleaned_bg_path,
@@ -207,4 +229,7 @@ def reconstruct_raster_slide(
         text_region_mae=text_mae,
         heatmap_path=heatmap_str,
         low_confidence_ids=low_conf_ids,
+        degraded_count=len(table_res.degraded_tables),
+        tables_count=len(table_res.tables),
+        table_cells_count=total_table_cells,
     )
