@@ -84,6 +84,7 @@ def test_cli_convert_file_and_dir_outputs_pptx_and_report(
     )
     assert res_inplace.exit_code == 0
     assert (in_dir / "album.converted.pptx").exists()
+    (in_dir / "album.converted.pptx").unlink()
 
     # Batch directory conversion
     out_batch = tmp_path / "out_batch"
