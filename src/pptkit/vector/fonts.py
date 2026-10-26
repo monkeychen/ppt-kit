@@ -128,6 +128,11 @@ def get_installed_fonts() -> set[str]:
         Path("/System/Library/Fonts"),
         Path("/Library/Fonts"),
         Path.home() / "Library/Fonts",
+        Path("/usr/share/fonts"),
+        Path("/usr/local/share/fonts"),
+        Path.home() / ".fonts",
+        Path.home() / ".local/share/fonts",
+        Path("C:/Windows/Fonts"),
     ]
     for d in font_dirs:
         if d.exists():

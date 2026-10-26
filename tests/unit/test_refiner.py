@@ -10,11 +10,11 @@ from pptkit.raster.refiner import refine_slide_textboxes
 def test_iterative_refiner_monotonic_ssim_and_max_iter(tmp_path: Path) -> None:
     img = Image.new("RGB", (1280, 720), color=(251, 248, 241))
     draw = ImageDraw.Draw(img)
-    font_path = "/System/Library/Fonts/STHeiti Medium.ttc"
-    font = (
-        ImageFont.truetype(font_path, 44) if Path(font_path).exists() else ImageFont.load_default()
-    )
-    draw.text((120, 140), "如果你想用好AI你就按着一步一步做", fill=(20, 20, 20), font=font)
+    try:
+        font = ImageFont.load_default(size=44)
+    except TypeError:
+        font = ImageFont.load_default()
+    draw.text((120, 140), "STEP BY STEP AI WORKFLOW GUIDE", fill=(20, 20, 20), font=font)
     img_path = tmp_path / "slide.png"
     img.save(img_path)
 

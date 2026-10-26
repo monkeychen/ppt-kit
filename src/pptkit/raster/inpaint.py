@@ -57,6 +57,6 @@ def verify_background_cleanliness(
 ) -> float:
     if original_char_count <= 0:
         return 0.0
-    remaining_boxes = ocr_adapter.recognize(cleaned_image_path, clean=False)
+    remaining_boxes = ocr_adapter.recognize(cleaned_image_path, clean=True)
     remaining_chars = sum(len(b.text.strip()) for b in remaining_boxes)
     return remaining_chars / original_char_count

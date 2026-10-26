@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-10-26
+
+### Fixed
+- **Cross-Platform OCR & Inpaint Verification**:
+  - `verify_background_cleanliness` now evaluates cleaned images using pipeline cleaning (`clean=True`), preventing noise and non-text artifacts from distorting cleanliness ratios.
+  - Added stray icon / container filtering (`"口"`, `"〇"`, and `min(w, h) >= 60`) in `clean_ocr_boxes` to prevent high-contrast geometric blocks from being misidentified as single-character text boxes.
+  - Made unit tests (`test_inpaint.py`, `test_text_style.py`, `test_refiner.py`) OS-agnostic by removing hardcoded macOS font paths (`/System/Library/Fonts/STHeiti Medium.ttc`) and instantiating `get_ocr_adapter("auto")` instead of `AppleVisionOCRAdapter`.
+- **System Font Discovery**:
+  - Expanded `get_installed_fonts()` in `pptkit/vector/fonts.py` with standard Linux (`/usr/share/fonts`, `~/.fonts`) and Windows (`C:/Windows/Fonts`) system font directories.
+
 ## [0.2.0] - 2026-10-26
 
 ### Added

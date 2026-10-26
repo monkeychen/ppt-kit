@@ -147,23 +147,29 @@ def clean_ocr_boxes(boxes: list[OCRBox]) -> list[OCRBox]:
             continue
 
         # 0c. Drop standalone graphic bullet/check icon glyphs
-        if len(text) == 1 and text in {
-            "◎",
-            "○",
-            "●",
-            "★",
-            "☆",
-            "•",
-            "·",
-            "太",
-            "√",
-            "✔",
-            "✓",
-            "□",
-            "■",
-            "☑",
-            "☐",
-        }:
+        if len(text) == 1 and (
+            text
+            in {
+                "◎",
+                "○",
+                "●",
+                "★",
+                "☆",
+                "•",
+                "·",
+                "太",
+                "√",
+                "✔",
+                "✓",
+                "□",
+                "■",
+                "☑",
+                "☐",
+                "口",
+                "〇",
+            }
+            or min(w, h) >= 60
+        ):
             continue
 
         # Fix missing math inequality symbol omitted by Vision OCR in Chinese comparison lines
