@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-26
+
+### Added
+- **Cross-Platform OCR Multi-Engine Dispatch**:
+  - Standardized `BaseOCRAdapter` protocol with `apple_vision` and `rapidocr` implementations.
+  - Automatic platform routing via `get_ocr_adapter("auto")`: Apple Vision on macOS, RapidOCR (CPU ONNX) on Linux and Windows.
+  - CLI `--ocr-engine [auto|apple_vision|rapidocr]` option.
+  - Multi-platform GitHub Actions CI matrix (`macos-latest`, `ubuntu-latest`, `windows-latest`).
+- **Native Table Intermediate Representation (IR)**:
+  - Added `CellBorder`, `TableCell`, and `TableElement` with full styling, background fills, border specifications, and cell spans (`row_span`, `col_span`).
+- **Native PPTX Table Generation**:
+  - High-fidelity PowerPoint Table shape creation with zero-margin cell padding to prevent text wrapping.
+  - Underlying DrawingML `<a:lnL>`, `<a:lnR>`, `<a:lnT>`, `<a:lnB>` custom border injection and vertical alignment support.
+- **Bitmap Table Reverse Extraction & Inpainting**:
+  - Morphological gradient edge line detection to reliably separate solid headers from thin grid lines.
+  - Text-to-cell assignment using geometric centroids and multiline paragraph merging.
+  - Complete background table grid erasure and inpainting to prevent ghost lines in the underlying bitmap layer.
+  - Quality reporting metrics expanded with `tables_count` and `table_cells_count`.
+
+### Changed
+- **Text Layer Deduplication**: Text boxes assigned to table cells are consumed and excluded from the slide-level floating text box layer.
+- **Decomposition Precedence**: Table regions are extracted and inpainted prior to general shape detection, preventing grid lines from being misclassified as generic cards or lines.
+
+### Fixed
+- **PyInstaller Entry Point**: Added `src/pptkit/__main__.py` to ensure standalone binary packaging functions out of the box.
+- **Platform Ingestion Defense**: Graceful error handling (`IngestError`) when Apple Vision is requested on non-macOS platforms.
+
 ## [0.1.0] - 2026-10-21
 
 ### Added
