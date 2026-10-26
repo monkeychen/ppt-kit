@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 from scipy.ndimage import binary_dilation
 
-from pptkit.adapters.ocr import AppleVisionOCRAdapter, OCRBox
+from pptkit.adapters.ocr import BaseOCRAdapter, OCRBox
 from pptkit.raster.text_style import sample_local_background_rgb
 
 
@@ -53,7 +53,7 @@ def inpaint_text_regions(image: Image.Image, boxes: list[OCRBox]) -> Image.Image
 def verify_background_cleanliness(
     cleaned_image_path: Path | str,
     original_char_count: int,
-    ocr_adapter: AppleVisionOCRAdapter,
+    ocr_adapter: BaseOCRAdapter,
 ) -> float:
     if original_char_count <= 0:
         return 0.0

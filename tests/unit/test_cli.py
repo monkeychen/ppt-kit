@@ -195,3 +195,27 @@ def test_cli_partial_failure_isolation_and_exit_codes(
     bad_pdf.write_bytes(b"invalid pdf bytes")
     res_bad = runner.invoke(app, ["convert", str(bad_pdf), "-o", str(out_dir)])
     assert res_bad.exit_code == 1
+
+
+def test_cli_ocr_engine_option_and_dispatch(tmp_path: Path) -> None:
+    png_file = tmp_path / "slide_rapid.png"
+    _create_raster_png(png_file)
+
+    out_dir = tmp_path / "out_rapid"
+    res = runner.invoke(
+        app,
+        [
+            "convert",
+            str(png_file),
+            "-o",
+            str(out_dir),
+            "--ocr-engine",
+            "rapidocr",
+            "--max-iter",
+            "0",
+        ],
+    )
+    assert res.exit_code == 0
+    assert (out_dir / "slide_rapid.pptx").exists()
+    assert (out_dir / "slide_rapid.report.json").exists()
+    assert "ocr=rapidocr" in res.stderr

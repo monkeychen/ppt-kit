@@ -1,10 +1,13 @@
+import sys
 from pathlib import Path
 
+import pytest
 from PIL import Image, ImageDraw, ImageFont
 
 from pptkit.adapters.ocr import AppleVisionOCRAdapter, OCRBox, clean_ocr_boxes
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="Apple Vision only supported on macOS")
 def test_apple_vision_ocr_extracts_chinese_and_english_accurately(tmp_path: Path) -> None:
     img = Image.new("RGB", (1200, 675), color=(250, 248, 242))
     draw = ImageDraw.Draw(img)
@@ -31,6 +34,8 @@ def test_apple_vision_ocr_extracts_chinese_and_english_accurately(tmp_path: Path
         assert 0 <= y < 675
         assert w > 0 and h > 0
 
+
+def test_clean_ocr_boxes_rule_heuristics() -> None:
     # Test post-processing cleaning rules (merged badge "o7 回答..." and stray star prefix "太 ")
     raw_samples = [
         OCRBox(text="o7 回答AI跟你提出的问题", bbox_px=(100, 100, 400, 40), confidence=0.5),

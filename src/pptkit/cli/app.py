@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 import typer
 
+from pptkit.adapters.ocr import OCREngineType
 from pptkit.ingest.loader import SUPPORTED_EXTS, IngestError, load_input
 from pptkit.ir.models import PresentationIR, SlideIR
 from pptkit.raster.pipeline import reconstruct_raster_slide
@@ -86,6 +87,7 @@ def _convert_single_file(
     pages_spec: str | None = None,
     max_iter: int = 1,
     use_vlm: bool = False,
+    ocr_engine: OCREngineType = "auto",
 ) -> tuple[int, int, DocumentQualityReport]:
     ingested = load_input(src_file, route_override=route_opt)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -140,6 +142,7 @@ def _convert_single_file(
                     work_dir=assets_dir / f"p{page.page_index:03d}",
                     max_iter=max_iter,
                     enable_render_refine=(max_iter > 0),
+                    ocr_engine=ocr_engine,
                 )
                 slides_ir.append(rec.slide_ir)
                 succeeded += 1
@@ -196,9 +199,10 @@ def _convert_single_file(
             done_cnt = idx_in_batch + 1
             avg_sec = (time.perf_counter() - start_all) / done_cnt
             eta_sec = max(0.0, avg_sec * (len(target_pages) - done_cnt))
+            ocr_tag = f", ocr={ocr_engine}" if page.route == "raster" else ""
             typer.echo(
                 f"[{src_file.name}] 进度 {done_cnt}/{len(target_pages)} 页 "
-                f"(route={page.route}, ETA={eta_sec:.1f}s)",
+                f"(route={page.route}{ocr_tag}, ETA={eta_sec:.1f}s)",
                 err=True,
             )
 
@@ -236,6 +240,10 @@ def convert_cmd(
     route: Annotated[
         Literal["auto", "vector", "raster"],
         typer.Option("--route", help="Route selection: auto, vector, or raster"),
+    ] = "auto",
+    ocr_engine: Annotated[
+        OCREngineType,
+        typer.Option("--ocr-engine", help="OCR engine: auto, apple_vision, or rapidocr"),
     ] = "auto",
     pages: Annotated[
         str | None,
@@ -284,6 +292,7 @@ def convert_cmd(
                 pages_spec=pages,
                 max_iter=max_iter,
                 use_vlm=vlm,
+                ocr_engine=ocr_engine,
             )
             total_succeeded += succ
             total_failed += fail

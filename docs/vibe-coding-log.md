@@ -2,6 +2,13 @@
 
 > 倒序追加，新的在上。格式见 ~/.gemini/dev-workflow.md。
 
+## 2026-10-26 | 跨平台 OCR 适配：惰性加载避免 CLI 延迟、平台能力平滑降级与合成文字断词容差
+- 现象：1）引入 RapidOCR ONNX 引擎后，若在模块导入阶段初始化引擎，会导致 `pptkit --help` 和纯矢量 PDF 解析变慢数百毫秒；2）非 macOS CI 跑单元测试时，Apple Vision 测试会因为找不到 `swiftc` 或 macOS 系统框架直接报错；3）测试中 PIL 默认点阵字体在极小字号下渲染时，RapidOCR 会将相邻英文单词拆散（如 `'He llo RapidOC R 2026'`），硬编码精确字符串相等会导致脆弱失败。
+- 原因：1）ONNX Session 创建及预加载检测与识别权重需加载约 15MB 模型文件与构建推理图；2）Apple Vision 依赖 macOS 原生 Swift/Vision 框架；3）小字号点阵位图字符间距不均，OCR 文本行聚合算子易受局部空白干扰。
+- 解决：1）在 `RapidOCRAdapter` 内采用惰性加载机制（首次调用 `recognize` 时才初始化 ONNX Session）；2）抽象 `BaseOCRAdapter` 协议，工厂函数 `get_ocr_adapter` 依据平台自动调度（macOS 优先 Apple Vision，Linux/Windows 使用 RapidOCR），非 macOS 平台对 Apple Vision 单元测试增加 `@pytest.mark.skipif(sys.platform != "darwin")` 并独立拆分清洗规则断言；3）单元测试断言采用核心 token 集合包含校验。
+- 适用范围：跨平台 OCR 适配与多环境调度。
+
+
 ## 2026-10-20 | 矢量 PDF 直接解析：零尺寸直线判定、双层通栏背景识别与跨字体坐标空隙回补
 - 现象：在开发 M4 矢量 PDF 直接解析与合成基准集测试中遇到三处精度与还原陷阱：1）基准测试中分隔线 `line` 形状召回率为 0；2）PowerPoint 导出的浅色背景矢量 PDF 中，背景色块被识别为普通前景 `ShapeElement` 压在所有文字下方；3）"原生渲染器 SSIM" 提取出的文本缺少空格变为 "原生渲染器SSIM"，导致字符准确率从 100% 降至 97.4%。
 - 原因：1）PDF 规范中纯水平或纯垂直直线的 `fitz.Rect` 高度或宽度为 0，若噪点过滤用 `rect.width <= 0.5 or rect.height <= 0.5` 会无差别抹杀直线；2）Office 导出 PDF 时常生成 Drawing 0（纯白纸张画布）和 Drawing 1（幻灯片实际主题底色，如 `#F8FAFC`），若仅将 `idx == 0` 当作背景，第二个全页色块会成为前景矩形；3）Office 矢量 PDF 导出引擎在字体切换（中文 `PingFang SC` 到西文 `Arial`）时，不输出 ASCII 空格字符 `\x20`，而是直接在坐标上产生 `~5pt` 的水平偏移来表现排版间隔。

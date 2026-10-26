@@ -7,9 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Lint, Type Check & Unit Tests
-    runs-on: macos-latest
+  lint-and-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +29,27 @@ jobs:
 
       - name: Static type check
         run: uv run pyright
+
+  test:
+    name: Unit Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
 
       - name: Run unit tests
         run: uv run pytest tests/unit

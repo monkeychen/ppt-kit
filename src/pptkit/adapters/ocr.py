@@ -1,10 +1,22 @@
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from PIL import Image
+
+from pptkit.ingest.loader import IngestError
+
+OCREngineType = Literal["auto", "apple_vision", "rapidocr"]
+
+
+@runtime_checkable
+class BaseOCRAdapter(Protocol):
+    def recognize(self, image_path: Path | str, clean: bool = True) -> list["OCRBox"]: ...
+
 
 VISION_SWIFT_SOURCE = """
 import Foundation
@@ -304,3 +316,66 @@ class AppleVisionOCRAdapter:
             return clean_ocr_boxes(refined_boxes)
 
         return boxes
+
+
+class RapidOCRAdapter:
+    def __init__(self) -> None:
+        self._engine: Any = None
+
+    def _get_engine(self) -> Any:
+        if self._engine is None:
+            from rapidocr_onnxruntime import RapidOCR
+
+            self._engine = RapidOCR()
+        return self._engine
+
+    def recognize(self, image_path: Path | str, clean: bool = True) -> list[OCRBox]:
+        img_p = Path(image_path).resolve()
+        with Image.open(img_p) as im:
+            width_px, height_px = im.size
+
+        engine = self._get_engine()
+        raw_result, _ = engine(str(img_p))
+        if not raw_result:
+            return []
+
+        boxes: list[OCRBox] = []
+        for entry in raw_result:
+            pts = entry[0]
+            text = str(entry[1])
+            conf = float(entry[2])
+
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            x0 = max(0, min(width_px - 1, int(round(min(xs)))))
+            y0 = max(0, min(height_px - 1, int(round(min(ys)))))
+            x1 = max(0, min(width_px, int(round(max(xs)))))
+            y1 = max(0, min(height_px, int(round(max(ys)))))
+            w = max(1, x1 - x0)
+            h = max(1, y1 - y0)
+
+            boxes.append(OCRBox(text=text, bbox_px=(x0, y0, w, h), confidence=conf))
+
+        if clean:
+            return clean_ocr_boxes(boxes)
+        return boxes
+
+
+def get_ocr_adapter(engine: OCREngineType = "auto") -> BaseOCRAdapter:
+    if engine == "auto":
+        target = "apple_vision" if sys.platform == "darwin" else "rapidocr"
+    else:
+        target = engine
+
+    if target == "apple_vision":
+        if sys.platform != "darwin":
+            raise IngestError(
+                code="UNSUPPORTED_PLATFORM",
+                message="Apple Vision OCR 仅在 macOS 系统可用",
+                hint="请改用 --ocr-engine rapidocr 或保持默认 --ocr-engine auto",
+            )
+        return AppleVisionOCRAdapter()
+    elif target == "rapidocr":
+        return RapidOCRAdapter()
+    else:
+        raise ValueError(f"未知的 OCR 引擎：{engine}")
