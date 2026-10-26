@@ -2,7 +2,11 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StrictInt
 
-from pptkit.common.units import DEFAULT_SLIDE_HEIGHT_EMU, DEFAULT_SLIDE_WIDTH_EMU
+from pptkit.common.units import (
+    DEFAULT_SLIDE_HEIGHT_EMU,
+    DEFAULT_SLIDE_WIDTH_EMU,
+    EMU_PER_PT,
+)
 
 
 class BBox(BaseModel):
@@ -67,8 +71,40 @@ class ImageElement(BaseElement):
     image_path: str
 
 
+class CellBorder(BaseModel):
+    color_hex: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+    width_emu: StrictInt = Field(default=EMU_PER_PT, ge=0)
+
+
+class TableCell(BaseModel):
+    row: StrictInt = Field(ge=0)
+    col: StrictInt = Field(ge=0)
+    row_span: StrictInt = Field(default=1, ge=1)
+    col_span: StrictInt = Field(default=1, ge=1)
+    paragraphs: list[Paragraph] = Field(default_factory=list)
+    fill_color_hex: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    border_left: CellBorder | None = None
+    border_right: CellBorder | None = None
+    border_top: CellBorder | None = None
+    border_bottom: CellBorder | None = None
+    margin_left_emu: StrictInt = 0
+    margin_right_emu: StrictInt = 0
+    margin_top_emu: StrictInt = 0
+    margin_bottom_emu: StrictInt = 0
+    vertical_align: Literal["top", "middle", "bottom"] = "middle"
+
+
+class TableElement(BaseElement):
+    kind: Literal["table"] = "table"
+    rows: StrictInt = Field(gt=0)
+    cols: StrictInt = Field(gt=0)
+    col_widths_emu: list[StrictInt] = Field(min_length=1)
+    row_heights_emu: list[StrictInt] = Field(min_length=1)
+    cells: list[list[TableCell]] = Field(min_length=1)
+
+
 SlideElement = Annotated[
-    TextBoxElement | ShapeElement | ImageElement,
+    TextBoxElement | ShapeElement | ImageElement | TableElement,
     Field(discriminator="kind"),
 ]
 

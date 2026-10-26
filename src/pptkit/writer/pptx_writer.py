@@ -4,17 +4,19 @@ from typing import Any
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.xmlchemy import OxmlElement
 from pptx.util import Emu, Pt
 
 from pptkit.common.color import hex_to_rgb
 from pptkit.ir.models import (
     Background,
+    CellBorder,
     ImageElement,
     PresentationIR,
     ShapeElement,
     SlideIR,
+    TableElement,
     TextBoxElement,
 )
 
@@ -23,6 +25,12 @@ ALIGN_MAP = {
     "center": PP_ALIGN.CENTER,
     "right": PP_ALIGN.RIGHT,
     "justify": PP_ALIGN.JUSTIFY,
+}
+
+VERTICAL_ANCHOR_MAP = {
+    "top": MSO_ANCHOR.TOP,
+    "middle": MSO_ANCHOR.MIDDLE,
+    "bottom": MSO_ANCHOR.BOTTOM,
 }
 
 SHAPE_TYPE_MAP = {
@@ -165,6 +173,115 @@ def _add_image(slide: Any, elem: ImageElement) -> None:
     pic.name = elem.id
 
 
+def _apply_cell_border(cell: Any, side_tag: str, border: CellBorder | None) -> None:
+    if not border or border.width_emu <= 0:
+        return
+    tcPr = cell._tc.get_or_add_tcPr()
+    ns = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    for existing in tcPr.findall(f"{ns}{side_tag}"):
+        tcPr.remove(existing)
+    ln = OxmlElement(f"a:{side_tag}")
+    ln.set("w", str(border.width_emu))
+    solidFill = OxmlElement("a:solidFill")
+    srgbClr = OxmlElement("a:srgbClr")
+    srgbClr.set("val", border.color_hex.lstrip("#").upper())
+    solidFill.append(srgbClr)
+    ln.append(solidFill)
+    tcPr.append(ln)
+
+
+def _add_table(slide: Any, elem: TableElement) -> None:
+    b = elem.bbox
+    shape = slide.shapes.add_table(
+        elem.rows,
+        elem.cols,
+        Emu(b.x),
+        Emu(b.y),
+        Emu(b.width),
+        Emu(b.height),
+    )
+    shape.name = elem.id
+    _disable_shadow(shape)
+    table = shape.table
+
+    # Set column widths
+    for col_idx, w_emu in enumerate(elem.col_widths_emu):
+        if col_idx < len(table.columns):
+            table.columns[col_idx].width = Emu(w_emu)
+
+    # Set row heights
+    for row_idx, h_emu in enumerate(elem.row_heights_emu):
+        if row_idx < len(table.rows):
+            table.rows[row_idx].height = Emu(h_emu)
+
+    # Populate cells
+    for r_idx in range(min(elem.rows, len(elem.cells))):
+        row_cells = elem.cells[r_idx]
+        for c_idx in range(min(elem.cols, len(row_cells))):
+            cell_ir = row_cells[c_idx]
+            cell = table.cell(r_idx, c_idx)
+
+            # Zero margins or use IR values
+            cell.margin_left = Emu(cell_ir.margin_left_emu)
+            cell.margin_right = Emu(cell_ir.margin_right_emu)
+            cell.margin_top = Emu(cell_ir.margin_top_emu)
+            cell.margin_bottom = Emu(cell_ir.margin_bottom_emu)
+
+            # Vertical alignment
+            cell.vertical_anchor = VERTICAL_ANCHOR_MAP.get(
+                cell_ir.vertical_align, MSO_ANCHOR.MIDDLE
+            )
+
+            # Fill
+            if cell_ir.fill_color_hex:
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = _rgb_color(cell_ir.fill_color_hex)
+            else:
+                cell.fill.background()
+
+            # Borders
+            _apply_cell_border(cell, "lnL", cell_ir.border_left)
+            _apply_cell_border(cell, "lnR", cell_ir.border_right)
+            _apply_cell_border(cell, "lnT", cell_ir.border_top)
+            _apply_cell_border(cell, "lnB", cell_ir.border_bottom)
+
+            # Paragraphs and text runs
+            tf = cell.text_frame
+            tf.word_wrap = True
+            if cell_ir.paragraphs:
+                for p_idx, para_ir in enumerate(cell_ir.paragraphs):
+                    p = tf.paragraphs[0] if p_idx == 0 else tf.add_paragraph()
+                    p.alignment = ALIGN_MAP.get(para_ir.align, PP_ALIGN.LEFT)
+                    if para_ir.line_spacing_pt is not None:
+                        p.line_spacing = Pt(para_ir.line_spacing_pt)
+                    if para_ir.space_after_pt > 0:
+                        p.space_after = Pt(para_ir.space_after_pt)
+
+                    for run_ir in para_ir.runs:
+                        run = p.add_run()
+                        run.text = run_ir.text
+                        font = run.font
+                        font.name = run_ir.style.font_family
+                        font.size = Pt(run_ir.style.font_size_pt)
+                        font.bold = run_ir.style.bold
+                        font.italic = run_ir.style.italic
+                        font.underline = run_ir.style.underline
+                        font.color.rgb = _rgb_color(run_ir.style.color_hex)
+                        _set_east_asian_font(run, run_ir.style.font_family)
+            else:
+                tf.text = ""
+
+    # Merge spanned cells
+    for r_idx in range(min(elem.rows, len(elem.cells))):
+        row_cells = elem.cells[r_idx]
+        for c_idx in range(min(elem.cols, len(row_cells))):
+            cell_ir = row_cells[c_idx]
+            if cell_ir.row_span > 1 or cell_ir.col_span > 1:
+                target_r = min(elem.rows - 1, r_idx + cell_ir.row_span - 1)
+                target_c = min(elem.cols - 1, c_idx + cell_ir.col_span - 1)
+                table.cell(r_idx, c_idx).merge(table.cell(target_r, target_c))
+
+
 def _write_slide(pres: Any, slide_ir: SlideIR) -> None:
     blank_layout = pres.slide_layouts[6]
     slide = pres.slides.add_slide(blank_layout)
@@ -178,6 +295,8 @@ def _write_slide(pres: Any, slide_ir: SlideIR) -> None:
             _add_shape(slide, elem)
         elif isinstance(elem, ImageElement):
             _add_image(slide, elem)
+        elif isinstance(elem, TableElement):
+            _add_table(slide, elem)
 
 
 def write_pptx(ir: PresentationIR, output_path: Path | str) -> Path:

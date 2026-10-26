@@ -2,6 +2,13 @@
 
 > 倒序追加，新的在上。格式见 ~/.gemini/dev-workflow.md。
 
+## 2026-10-26 | 原生表格 PPTX 生成：单元格默认内边距清零、DrawingML 边框底层注入与全局单位规约
+- 现象：1）使用 python-pptx 生成原生 Table 时，单元格默认带有左右各 0.1 inch（~14.4pt）的内边距，导致原本刚好单行的文本在表格中被挤压换行，行高剧增；2）python-pptx 未暴露单元格边框（Border）高层 API，若通过叠放原生 Line 模拟边框，用户拖拽表格时边框滞留在原地；3）单元测试 `test_units.py` 严格防御 `units.py` 之外出现 `12700` 或 `914400` 等单位换算魔法数字。
+- 原因：1）PowerPoint OpenXML 规范中表格单元格的默认边距为预设值（非 0）；2）DrawingML 将边框存储在 `tcPr` 的 `<a:lnL>` / `<a:lnR>` / `<a:lnT>` / `<a:lnB>` 命名空间子节点中；3）项目架构规约要求单位换算必须在 `pptkit/common/units.py` 统一收敛。
+- 解决：1）在 `_add_table` 中对每个单元格主动应用 `cell.margin_left = 0` 等边距收敛策略；2）底层直接操作 `cell._tc.get_or_add_tcPr()`，为单元格注入原生矢量边框并绑定 `solidFill` 颜色与线宽；3）统一从 `pptkit.common.units` 导入 `EMU_PER_PT`，杜绝代码内硬编码。
+- 适用范围：PPTX 原生表格写入与高保真单元格排版。
+
+
 ## 2026-10-26 | 跨平台 OCR 适配：惰性加载避免 CLI 延迟、平台能力平滑降级与合成文字断词容差
 - 现象：1）引入 RapidOCR ONNX 引擎后，若在模块导入阶段初始化引擎，会导致 `pptkit --help` 和纯矢量 PDF 解析变慢数百毫秒；2）非 macOS CI 跑单元测试时，Apple Vision 测试会因为找不到 `swiftc` 或 macOS 系统框架直接报错；3）测试中 PIL 默认点阵字体在极小字号下渲染时，RapidOCR 会将相邻英文单词拆散（如 `'He llo RapidOC R 2026'`），硬编码精确字符串相等会导致脆弱失败。
 - 原因：1）ONNX Session 创建及预加载检测与识别权重需加载约 15MB 模型文件与构建推理图；2）Apple Vision 依赖 macOS 原生 Swift/Vision 框架；3）小字号点阵位图字符间距不均，OCR 文本行聚合算子易受局部空白干扰。
