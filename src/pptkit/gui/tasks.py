@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import queue
+import shutil
 import tempfile
 import threading
 import time
@@ -256,6 +257,33 @@ class ConversionTask:
                 )
                 write_pptx(pres_ir, pptx_out)
                 self.output_pptx_path = pptx_out
+
+                # Generate reconstructed preview slice for each slide
+                try:
+                    from pptkit.render.renderer import render_pptx
+
+                    render_res = render_pptx(pptx_out, out_dir / "rendered")
+                    for p_idx, png_p in enumerate(render_res.png_paths):
+                        dst = assets_dir / f"p{p_idx:03d}" / "reconstructed.png"
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(png_p, dst)
+                except Exception:
+                    from PIL import Image
+
+                    for p_idx in range(len(slides_ir)):
+                        dst = assets_dir / f"p{p_idx:03d}" / "reconstructed.png"
+                        if not dst.exists():
+                            dst.parent.mkdir(parents=True, exist_ok=True)
+                            trial_png = next(
+                                (assets_dir / f"p{p_idx:03d}").glob("iter_*/trial*.png"),
+                                None,
+                            )
+                            if trial_png and trial_png.exists():
+                                shutil.copy2(trial_png, dst)
+                            else:
+                                Image.new("RGB", (960, 540), color=(255, 255, 255)).save(
+                                    dst, format="PNG"
+                                )
 
             doc_report = DocumentQualityReport(
                 source=str(src_file),

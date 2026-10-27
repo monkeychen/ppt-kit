@@ -164,10 +164,11 @@ status: approved
   - 确保无缓冲流式传输与客户端平滑断开处理
   - 验证证据：`uv run pytest tests/integration/test_gui_sse.py`（1 passed in 0.89s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): add sse progress streaming and convert endpoint`
-- [ ] **Task 3: 双图切片与 PPTX/报告下载端点 (Red-Green-Refactor)**
-  - 编写 `tests/integration/test_gui_preview.py` 与 `test_gui_download.py`（红）
+- [x] **Task 3: 双图切片与 PPTX/报告下载端点 (Red-Green-Refactor)**
+  - 编写 `tests/integration/test_gui_preview_download.py`（红）
   - 实现 `/api/preview/{id}/{type}/{page}` 与 `/api/download/{id}`、`/api/report/{id}`（绿）
   - 接入 PDF 首屏切片缓存与 PPTX 附件流式下发
+  - 验证证据：`uv run pytest tests/integration/test_gui_preview_download.py`（2 passed in 3.82s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): implement preview slice serving and pptx download`
 - [ ] **Task 4: 前端交互打通与状态闭环**
   - 在 `src/pptkit/gui/static/index.html` 中接入真实接口（上传 -> 触发转换 -> SSE 监听 -> 状态条刷新 -> 下载激活）

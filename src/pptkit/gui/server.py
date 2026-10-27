@@ -41,6 +41,14 @@ class PPTKitRequestHandler(BaseHTTPRequestHandler):
         elif path.startswith("/api/events/"):
             session_id = path[len("/api/events/") :].strip()
             self._handle_events(session_id)
+        elif path.startswith("/api/preview/"):
+            self._handle_preview(path)
+        elif path.startswith("/api/download/"):
+            session_id = path[len("/api/download/") :].strip()
+            self._handle_download(session_id)
+        elif path.startswith("/api/report/"):
+            session_id = path[len("/api/report/") :].strip()
+            self._handle_report(session_id)
         elif path.startswith("/static/"):
             self._serve_static(path[len("/static/") :])
         else:
@@ -209,6 +217,142 @@ class PPTKitRequestHandler(BaseHTTPRequestHandler):
             pass
         finally:
             task.unsubscribe(q)
+
+    def _handle_preview(self, path: str) -> None:
+        parts = [p for p in path.split("/") if p]
+        if len(parts) < 4:
+            self._send_error(400, "INVALID_PATH", "Invalid preview path")
+            return
+
+        session_id = parts[2]
+        session_info = self.ppt_server.session_manager.get_session(session_id)
+        if not session_info:
+            self._send_error(404, "SESSION_NOT_FOUND", "Session not found")
+            return
+
+        if len(parts) == 4 and parts[3].startswith("page_"):
+            preview_type = "original"
+            try:
+                page_idx = int(parts[3][len("page_") :])
+            except ValueError:
+                self._send_error(400, "INVALID_PAGE", "Invalid page number")
+                return
+        elif len(parts) == 5:
+            preview_type = parts[3]
+            try:
+                page_idx = int(parts[4])
+            except ValueError:
+                self._send_error(400, "INVALID_PAGE", "Invalid page number")
+                return
+        else:
+            self._send_error(400, "INVALID_PATH", "Invalid preview format")
+            return
+
+        assets_dir = session_info.session_dir / "assets"
+
+        if preview_type == "original":
+            if session_info.file_type in {"png", "jpg", "jpeg", "webp"}:
+                if page_idx != 0:
+                    self._send_error(404, "PAGE_OUT_OF_RANGE", "Image has only page 0")
+                    return
+                content = session_info.input_path.read_bytes()
+                mime = "image/png" if session_info.file_type == "png" else "image/jpeg"
+                self._send_bytes(200, mime, content)
+                return
+            elif session_info.file_type == "pdf":
+                cache_path = assets_dir / f"orig_p{page_idx:03d}.png"
+                if cache_path.exists():
+                    self._send_bytes(200, "image/png", cache_path.read_bytes())
+                    return
+                try:
+                    import fitz
+
+                    with fitz.open(session_info.input_path) as doc:
+                        if not (0 <= page_idx < doc.page_count):
+                            self._send_error(
+                                404,
+                                "PAGE_OUT_OF_RANGE",
+                                "Page index out of range",
+                            )
+                            return
+                        pix = doc[page_idx].get_pixmap(dpi=150)
+                        cache_path.parent.mkdir(parents=True, exist_ok=True)
+                        pix.save(str(cache_path))
+                    self._send_bytes(200, "image/png", cache_path.read_bytes())
+                    return
+                except Exception as e:
+                    self._send_error(500, "RENDER_ERROR", f"Failed to render PDF page: {e}")
+                    return
+            else:
+                self._send_error(
+                    404,
+                    "UNSUPPORTED_TYPE",
+                    "Cannot preview original for this type",
+                )
+                return
+
+        elif preview_type == "reconstructed":
+            recon_path = assets_dir / f"p{page_idx:03d}" / "reconstructed.png"
+            if recon_path.exists():
+                self._send_bytes(200, "image/png", recon_path.read_bytes())
+                return
+            self._send_error(404, "NOT_READY", "Reconstructed preview not available yet")
+            return
+        else:
+            self._send_error(
+                400,
+                "INVALID_PREVIEW_TYPE",
+                f"Unknown preview type: {preview_type}",
+            )
+
+    def _handle_download(self, session_id: str) -> None:
+        session_info = self.ppt_server.session_manager.get_session(session_id)
+        if not session_info:
+            self._send_error(404, "SESSION_NOT_FOUND", "Session not found")
+            return
+
+        pptx_path = session_info.session_dir / "output" / f"{session_info.input_path.stem}.pptx"
+        if not pptx_path.exists():
+            task = self.ppt_server.get_task(session_id)
+            if task and task.output_pptx_path and task.output_pptx_path.exists():
+                pptx_path = task.output_pptx_path
+            else:
+                self._send_error(404, "FILE_NOT_FOUND", "PPTX has not been generated yet")
+                return
+
+        data = pptx_path.read_bytes()
+        filename = f"{session_info.input_path.stem}.pptx"
+        self.send_response(200)
+        self.send_header(
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _handle_report(self, session_id: str) -> None:
+        session_info = self.ppt_server.session_manager.get_session(session_id)
+        if not session_info:
+            self._send_error(404, "SESSION_NOT_FOUND", "Session not found")
+            return
+
+        report_path = (
+            session_info.session_dir / "output" / f"{session_info.input_path.stem}.report.json"
+        )
+        if not report_path.exists():
+            self._send_error(404, "REPORT_NOT_FOUND", "Report not available")
+            return
+
+        self._send_bytes(200, "application/json; charset=utf-8", report_path.read_bytes())
+
+    def _send_bytes(self, status_code: int, content_type: str, data: bytes) -> None:
+        self.send_response(status_code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _send_json(self, status_code: int, data: dict[str, object]) -> None:
         payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
