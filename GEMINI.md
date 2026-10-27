@@ -27,6 +27,7 @@ ppt-kit/
 │   ├── render/                 # PPTX → PNG 渲染 + 图像对比度量
 │   ├── report/                 # 质量报告
 │   └── cli/                    # Typer CLI 入口
+├── scripts/                    # 构建与打包脚本（跨平台 binary / wheel / all）
 ├── tests/
 │   ├── unit/                   # 无网络、无外部模型，秒级
 │   ├── integration/            # 真实模型 / 真实渲染器，需 API Key，标记 @pytest.mark.integration
@@ -43,6 +44,7 @@ ppt-kit/
 **什么放哪**：
 - 只被一个子模块用的工具函数放在该模块内；被 ≥2 个模块用才提升到 `pptkit/common/`。
 - 坐标换算、颜色处理等通用几何逻辑放 `pptkit/common/`，禁止各模块各写一份。
+- 项目自动化构建与打包脚本放 `scripts/`。
 - 一次性调试脚本放 `scratch/`（gitignore），不进 `src/`。
 
 ## 3. 命名约定
@@ -69,6 +71,13 @@ uv run ruff check . && uv run ruff format --check .
 uv run pyright                           # 类型检查
 uv run pptkit convert <input> -o out/    # 转换
 uv run python -m benchmark.run           # 跑基准集，结果写入 benchmark/results/
+
+# 打包构建命令
+./scripts/build.sh                       # 本地打包独立二进制（默认 binary）
+./scripts/build.sh wheel                 # 本地打包 Python Wheel & 源码包
+./scripts/build.sh all                   # 同时打包二进制与 Wheel
+# 跨平台通用执行方式：
+uv run python scripts/build.py [binary|wheel|all]
 ```
 
 ## 6. 密钥与配置
@@ -78,6 +87,6 @@ uv run python -m benchmark.run           # 跑基准集，结果写入 benchmark
 
 ## 7. 清理规则
 
-- `out/`、`benchmark/results/`、`scratch/`、`.cache/` 全部 gitignore，随时可删。
+- `out/`、`benchmark/results/`、`scratch/`、`.cache/`、`dist/`、`build/` 全部 gitignore，随时可删。
 - `benchmark/real/` 里的大文件不入库，只入库 `manifest.json`（文件名、来源、页数、sha256）。
 - 版本交付后，`docs/` 下本版文档整组移入 `docs/archive/vx.y.z/`。
