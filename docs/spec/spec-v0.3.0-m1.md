@@ -133,10 +133,11 @@ sequenceDiagram
   - 保证无外部第三方库引入，内存可控流式读取
   - 验证证据：`uv run pytest tests/unit/gui/test_multipart.py`（3 passed in 0.01s），Pyright 0 errors
   - Git Commit: `feat(gui): implement zero-dependency multipart form parser`
-- [ ] **Task 2: 会话隔离与文件预检元数据提取 (Red-Green-Refactor)**
+- [x] **Task 2: 会话隔离与文件预检元数据提取 (Red-Green-Refactor)**
   - 编写 `tests/unit/gui/test_session.py`（红）
   - 实现 `src/pptkit/gui/session.py`（绿）
   - 接入 PyMuPDF / PIL 提取首屏页数与尺寸，建立规范会话目录
+  - 验证证据：`uv run pytest tests/unit/gui/test_session.py`（3 passed in 0.14s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): implement session manager and upload precheck`
 - [ ] **Task 3: 本地 HTTP 服务与静态资源托管 (Red-Green-Refactor)**
   - 将通过确认的原型置于 `src/pptkit/gui/static/index.html`
