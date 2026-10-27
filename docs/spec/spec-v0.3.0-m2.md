@@ -158,10 +158,11 @@ status: approved
   - 统一转换流水线执行器与监听队列，实现事件回放与线程安全
   - 验证证据：`uv run pytest tests/unit/gui/test_task_runner.py`（3 passed in 0.65s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): implement async conversion task runner and event queue`
-- [ ] **Task 2: SSE 进度流式端点与转换调度路由 (Red-Green-Refactor)**
+- [x] **Task 2: SSE 进度流式端点与转换调度路由 (Red-Green-Refactor)**
   - 编写 `tests/integration/test_gui_sse.py`（红）
   - 在 `src/pptkit/gui/server.py` 中实现 `POST /api/convert/{id}` 与 `GET /api/events/{id}`（绿）
   - 确保无缓冲流式传输与客户端平滑断开处理
+  - 验证证据：`uv run pytest tests/integration/test_gui_sse.py`（1 passed in 0.89s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): add sse progress streaming and convert endpoint`
 - [ ] **Task 3: 双图切片与 PPTX/报告下载端点 (Red-Green-Refactor)**
   - 编写 `tests/integration/test_gui_preview.py` 与 `test_gui_download.py`（红）
