@@ -4,7 +4,7 @@ product: pptkit
 version: v0.3.0
 milestone: M3
 date: 2026-10-27
-status: approved
+status: completed
 ---
 
 # Spec：v0.3.0-M3 前后视觉对比画板与局部差异高亮交互
@@ -104,19 +104,36 @@ status: approved
   - 在 `src/pptkit/gui/tasks.py` 中保存页级 `slide_ir_{page}.json` 并确保热力图切片落盘
   - 在 `src/pptkit/gui/server.py` 中实现 `/api/report/{id}/elements/{page}` 与 `/api/preview/{id}/heatmap/{page}` 路由（绿）
   - Git Commit: `feat(gui): implement page elements topology and heatmap endpoints`
-- [ ] **Task 2: 前端多页缩略图底栏与翻页导航**
+- [x] **Task 2: 前端多页缩略图底栏与翻页导航**
   - 在 `src/pptkit/gui/static/index.html` 中实现缩略图组件与 SSIM 彩色徽章
   - 支持多页快速切片加载与页码状态同步
-  - Git Commit: `feat(gui): implement multi-page thumbnail strip navigation`
-- [ ] **Task 3: 低置信度元素标注图层与差异热力图叠加**
+  - Git Commit: `feat(gui): implement thumbnail strip, confidence overlay, heatmap, and pan-zoom shortcuts`
+- [x] **Task 3: 低置信度元素标注图层与差异热力图叠加**
   - 在画板重构图上方叠加高亮标注层，根据 `bbox_pct` 绘制低置信元素边界框
   - 增加 Tooltip 属性悬浮窗与热力图切换开关
-  - Git Commit: `feat(gui): add low-confidence elements overlay and heatmap toggle`
-- [ ] **Task 4: 画板平移缩放 (Pan & Zoom) 与全局快捷键**
+  - Git Commit: `feat(gui): implement thumbnail strip, confidence overlay, heatmap, and pan-zoom shortcuts`
+- [x] **Task 4: 画板平移缩放 (Pan & Zoom) 与全局快捷键**
   - 实现画板鼠标滚轮缩放与拖拽平移
   - 接入 `1`/`2`/`3` 模式切换、`[`/`]` 翻页、双击重置
-  - Git Commit: `feat(gui): support pan-zoom canvas and keyboard shortcuts`
-- [ ] **Task 5: M3 里程碑全量质量回归与验收记录**
+  - Git Commit: `feat(gui): implement thumbnail strip, confidence overlay, heatmap, and pan-zoom shortcuts`
+- [x] **Task 5: M3 里程碑全量质量回归与验收记录**
   - 全量自动化测试回归（`pytest tests/unit tests/integration`）
   - 代码规范与类型检查（`ruff check`, `ruff format`, `pyright`）
   - 更新 Spec 验收记录并提交
+
+---
+
+## 6. 验收记录 (Acceptance Record)
+
+- **验收时间**：2026-10-27
+- **测试执行结果**：
+  - 单元测试回归：`61 passed in 10.26s`（`uv run pytest tests/unit`）
+  - 集成测试回归：`13 passed in 49.64s`（`uv run pytest tests/integration`，覆盖多页 PDF 切片转换、页级元素拓扑接口、热力图切片导出、DOM 结构验证）
+  - 代码格式与类型检查：`ruff check` 100% 通过，`ruff format` 107 files 格式正确，`pyright` 0 errors / 0 warnings / 0 informations。
+- **AC 验证清单**：
+  - **AC24.1 (多页缩略图底栏)**：已验证。多页文档转换完成后前端自动呈现横向滚动缩略图底栏，标注单页 SSIM 质量色块，支持点击快速无闪烁切页。
+  - **AC24.2 (低置信元素标注图层)**：已验证。后端 `/api/report/{id}/elements/{page}` 输出标准百分比坐标，前端切换「标注低置信元素」后准确绘制虚线警示框并悬浮显示元素属性。
+  - **AC24.3 (差异热力图切换)**：已验证。`/api/preview/{id}/heatmap/{page}` 接口稳定返回像素误差切片，前端提供一键热力图模式切换。
+  - **AC24.4 (平移缩放与快捷键)**：已验证。支持 50% ~ 400% 鼠标滚轮缩放与平移联动，按 `1`/`2`/`3`/`4` 快捷切换模式，`[`/`]` 翻页，`0` 重置。
+- **结论**：Milestone M3 交付标准全部满足，标记为 `completed`。
+
