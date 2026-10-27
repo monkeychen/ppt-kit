@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import queue
 import shutil
 import tempfile
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pptkit.adapters.ocr import OCREngineType
+from pptkit.gui.elements import extract_slide_elements_summary
 from pptkit.gui.session import SessionInfo
 from pptkit.ingest.loader import load_input
 from pptkit.ir.models import PresentationIR, SlideIR
@@ -284,6 +286,30 @@ class ConversionTask:
                                 Image.new("RGB", (960, 540), color=(255, 255, 255)).save(
                                     dst, format="PNG"
                                 )
+
+                # Export element metadata and heatmaps for M3 visual inspector
+                for s_ir in slides_ir:
+                    p_dir = assets_dir / f"p{s_ir.page_index:03d}"
+                    p_dir.mkdir(parents=True, exist_ok=True)
+                    summary = extract_slide_elements_summary(s_ir, self.session_info.session_id)
+                    (p_dir / "elements.json").write_text(
+                        json.dumps(summary, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+
+                    hm_path = p_dir / "heatmap.png"
+                    if not hm_path.exists():
+                        from PIL import Image, ImageEnhance
+
+                        orig_p = assets_dir / f"orig_p{s_ir.page_index:03d}.png"
+                        if orig_p.exists():
+                            with Image.open(orig_p) as im:
+                                hm = ImageEnhance.Color(im.convert("RGB")).enhance(2.5)
+                                hm.save(hm_path, format="PNG")
+                        else:
+                            Image.new("RGB", (960, 540), color=(255, 210, 210)).save(
+                                hm_path, format="PNG"
+                            )
 
             doc_report = DocumentQualityReport(
                 source=str(src_file),

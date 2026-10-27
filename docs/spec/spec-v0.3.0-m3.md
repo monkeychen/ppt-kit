@@ -4,7 +4,7 @@ product: pptkit
 version: v0.3.0
 milestone: M3
 date: 2026-10-27
-status: draft
+status: approved
 ---
 
 # Spec：v0.3.0-M3 前后视觉对比画板与局部差异高亮交互
@@ -99,7 +99,7 @@ status: draft
 
 ## 5. Task 拆解与执行计划
 
-- [ ] **Task 1: 页级元素拓扑与热力图后端接口 (Red-Green-Refactor)**
+- [x] **Task 1: 页级元素拓扑与热力图后端接口 (Red-Green-Refactor)**
   - 编写 `tests/unit/gui/test_elements_export.py` 与 `tests/integration/test_gui_m3_api.py`（红）
   - 在 `src/pptkit/gui/tasks.py` 中保存页级 `slide_ir_{page}.json` 并确保热力图切片落盘
   - 在 `src/pptkit/gui/server.py` 中实现 `/api/report/{id}/elements/{page}` 与 `/api/preview/{id}/heatmap/{page}` 路由（绿）

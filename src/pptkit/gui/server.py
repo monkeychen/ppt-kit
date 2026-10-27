@@ -47,8 +47,7 @@ class PPTKitRequestHandler(BaseHTTPRequestHandler):
             session_id = path[len("/api/download/") :].strip()
             self._handle_download(session_id)
         elif path.startswith("/api/report/"):
-            session_id = path[len("/api/report/") :].strip()
-            self._handle_report(session_id)
+            self._handle_report(path)
         elif path.startswith("/static/"):
             self._serve_static(path[len("/static/") :])
         else:
@@ -298,6 +297,13 @@ class PPTKitRequestHandler(BaseHTTPRequestHandler):
                 return
             self._send_error(404, "NOT_READY", "Reconstructed preview not available yet")
             return
+        elif preview_type == "heatmap":
+            hm_path = assets_dir / f"p{page_idx:03d}" / "heatmap.png"
+            if hm_path.exists():
+                self._send_bytes(200, "image/png", hm_path.read_bytes())
+                return
+            self._send_error(404, "NOT_FOUND", "Heatmap not available")
+            return
         else:
             self._send_error(
                 400,
@@ -332,20 +338,47 @@ class PPTKitRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _handle_report(self, session_id: str) -> None:
+    def _handle_report(self, path: str) -> None:
+        parts = [p for p in path.split("/") if p]
+        if len(parts) < 3:
+            self._send_error(400, "INVALID_PATH", "Invalid report path")
+            return
+
+        session_id = parts[2]
         session_info = self.ppt_server.session_manager.get_session(session_id)
         if not session_info:
             self._send_error(404, "SESSION_NOT_FOUND", "Session not found")
             return
 
-        report_path = (
-            session_info.session_dir / "output" / f"{session_info.input_path.stem}.report.json"
-        )
-        if not report_path.exists():
-            self._send_error(404, "REPORT_NOT_FOUND", "Report not available")
+        if len(parts) == 3:
+            report_path = (
+                session_info.session_dir / "output" / f"{session_info.input_path.stem}.report.json"
+            )
+            if not report_path.exists():
+                self._send_error(404, "REPORT_NOT_FOUND", "Report not available")
+                return
+            self._send_bytes(
+                200,
+                "application/json; charset=utf-8",
+                report_path.read_bytes(),
+            )
             return
 
-        self._send_bytes(200, "application/json; charset=utf-8", report_path.read_bytes())
+        if len(parts) == 5 and parts[3] == "elements":
+            try:
+                page_idx = int(parts[4])
+            except ValueError:
+                self._send_error(400, "INVALID_PAGE", "Invalid page index")
+                return
+
+            elem_path = session_info.session_dir / "assets" / f"p{page_idx:03d}" / "elements.json"
+            if not elem_path.exists():
+                self._send_error(404, "ELEMENTS_NOT_FOUND", "Elements data not available")
+                return
+            self._send_bytes(200, "application/json; charset=utf-8", elem_path.read_bytes())
+            return
+
+        self._send_error(404, "NOT_FOUND", f"Route not found: {path}")
 
     def _send_bytes(self, status_code: int, content_type: str, data: bytes) -> None:
         self.send_response(status_code)
