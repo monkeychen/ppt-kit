@@ -114,3 +114,7 @@ def parse_multipart(
             fields[field_name] = part_body.decode("utf-8", errors="replace")
 
     return MultipartFormData(files=files, fields=fields)
+
+
+# Alias for compatibility
+parse_multipart_form = parse_multipart

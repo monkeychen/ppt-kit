@@ -139,11 +139,12 @@ sequenceDiagram
   - 接入 PyMuPDF / PIL 提取首屏页数与尺寸，建立规范会话目录
   - 验证证据：`uv run pytest tests/unit/gui/test_session.py`（3 passed in 0.14s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): implement session manager and upload precheck`
-- [ ] **Task 3: 本地 HTTP 服务与静态资源托管 (Red-Green-Refactor)**
+- [x] **Task 3: 本地 HTTP 服务与静态资源托管 (Red-Green-Refactor)**
   - 将通过确认的原型置于 `src/pptkit/gui/static/index.html`
   - 编写 `tests/integration/test_gui_server.py`（红）
-  - 实现 `src/pptkit/gui/server.py` 与 `routes.py`（绿）
+  - 实现 `src/pptkit/gui/server.py`（绿）
   - 支持 `/api/health`、`/api/upload` 及静态页面伺服
+  - 验证证据：`uv run pytest tests/integration/test_gui_server.py`（3 passed in 1.74s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): implement embedded ThreadingHTTPServer and static asset serving`
 - [ ] **Task 4: CLI `pptkit gui` 命令注册与自启浏览器 (Red-Green-Refactor)**
   - 编写 `tests/unit/gui/test_cli_gui.py`（红）

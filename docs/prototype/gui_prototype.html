@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ppt-kit — 幻灯片逆向重构与原生 PPTX 转换器</title>
+  <style>
+    /* Design Tokens: Default Studio Light (Keynote/Figma Workstation) */
+    :root {
+      --bg: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-surface: #f1f5f9;
+      --bg-hover: #e2e8f0;
+      --border-subtle: #e2e8f0;
+      --border-highlight: #cbd5e1;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-tertiary: #94a3b8;
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --accent-subtle: #eef2ff;
+      --accent-glow: rgba(79, 70, 229, 0.15);
+      --success: #059669;
+      --success-subtle: #ecfdf5;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 8px 24px -4px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+      --shadow-lg: 0 24px 48px -12px rgba(15, 23, 42, 0.08), 0 0 1px rgba(15, 23, 42, 0.12);
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --radius-sm: 6px;
+      --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    }
+
+    /* Neutral Dark Mode (No gaudy neon halos, pure studio dark) */
+    [data-theme="dark"] {
+      --bg: #0c1017;
+      --bg-card: #151b26;
+      --bg-surface: #1e2636;
+      --bg-hover: #293448;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-highlight: rgba(255, 255, 255, 0.16);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-tertiary: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-subtle: rgba(99, 102, 241, 0.12);
+      --accent-glow: rgba(99, 102, 241, 0.3);
+      --success: #10b981;
+      --success-subtle: rgba(16, 185, 129, 0.12);
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 12px 32px -4px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 32px 64px -16px rgba(0, 0, 0, 0.6);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    /* Header Nav */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 36px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #4f46e5, #0ea5e9);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+    }
+
+    .brand-logo svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: white;
+      stroke-width: 2.2;
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    .brand-tag {
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+    }
+
+    /* Theme Toggle Switcher */
+    .theme-toggle-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .theme-toggle-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .theme-toggle-btn svg {
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+    }
+
+    /* Main Workspace */
+    main {
+      flex: 1;
+      max-width: 1140px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 36px 24px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Professional Card Panel */
+    .studio-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: 36px;
+    }
+
+    /* STATE 1: UPLOAD AREA */
+    .drop-surface {
+      border: 2px dashed var(--border-highlight);
+      border-radius: var(--radius-lg);
+      background: var(--bg-surface);
+      padding: 68px 32px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .drop-surface:hover, .drop-surface.dragover {
+      border-color: var(--accent);
+      background: var(--accent-subtle);
+      transform: translateY(-1px);
+    }
+
+    .icon-halo {
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 20px;
+      border-radius: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .drop-surface:hover .icon-halo {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .drop-heading {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .drop-desc {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .format-pills {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .format-pill {
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 5px 11px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .format-pill::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* Config Drawer */
+    .config-trigger {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-tertiary);
+      font-size: 0.85rem;
+      margin-top: 24px;
+      cursor: pointer;
+      user-select: none;
+      width: fit-content;
+    }
+
+    .config-trigger:hover {
+      color: var(--text-secondary);
+    }
+
+    .config-tray {
+      margin-top: 16px;
+      padding: 22px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+    }
+
+    .config-tray.hidden {
+      display: none;
+    }
+
+    .tray-field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .tray-field select, .tray-field input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-highlight);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--text-primary);
+      font-size: 0.86rem;
+      outline: none;
+    }
+
+    .tray-field select:focus, .tray-field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-subtle);
+    }
+
+    /* STATE 2: PROGRESS */
+    .stream-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 14px;
+    }
+
+    .stream-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .stream-clock {
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .progress-track {
+      height: 6px;
+      background: var(--bg-surface);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+
+    .progress-thumb {
+      height: 100%;
+      width: 68%;
+      background: linear-gradient(90deg, #4f46e5, #0284c7);
+      border-radius: 3px;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .timeline-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .timeline-node {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.9rem;
+      color: var(--text-tertiary);
+    }
+
+    .timeline-node.done {
+      color: var(--text-secondary);
+    }
+
+    .timeline-node.active {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .node-indicator {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .timeline-node.done .node-indicator {
+      background: var(--success-subtle);
+      border-color: rgba(5, 150, 105, 0.3);
+      color: var(--success);
+    }
+
+    .timeline-node.active .node-indicator {
+      border-color: transparent;
+      background: none;
+    }
+
+    .active-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border-subtle);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .node-latency {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-tertiary);
+      margin-left: auto;
+    }
+
+    /* STATE 3: INSPECTION STAGE (Clean Keynote Desk Aesthetic) */
+    .inspector-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .target-file {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .file-name {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+    }
+
+    .engine-chip {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      background: var(--success-subtle);
+      border: 1px solid rgba(5, 150, 105, 0.25);
+      color: var(--success);
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .view-segmented {
+      display: flex;
+      align-items: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .segmented-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .segmented-btn.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Slide Stage on Studio Desk */
+    .slider-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border-highlight);
+      box-shadow: var(--shadow-lg);
+      user-select: none;
+      background: #fbf8f2;
+    }
+
+    .slide-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px;
+      background: #fbf8f2;
+      color: #0f172a;
+    }
+
+    .slide-canvas.before-layer {
+      filter: blur(0.25px);
+    }
+
+    .slide-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .category-capsule {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 5px 14px;
+      border-radius: 20px;
+      background: #e65c19;
+      color: #ffffff;
+    }
+
+    .slide-hero {
+      margin-top: 18px;
+    }
+
+    .slide-h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #0f172a;
+      line-height: 1.15;
+    }
+
+    .slide-sub {
+      color: #475569;
+      font-size: 1.05rem;
+      margin-top: 8px;
+    }
+
+    .cards-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 28px;
+    }
+
+    .pres-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+    }
+
+    .after-layer .pres-card {
+      border: 1.5px solid #4f46e5;
+      position: relative;
+    }
+
+    .card-meta-tag {
+      position: absolute;
+      top: -10px;
+      right: 12px;
+      background: #4f46e5;
+      color: white;
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .pres-card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+
+    .pres-card-body {
+      font-size: 0.85rem;
+      color: #64748b;
+      line-height: 1.45;
+    }
+
+    .slide-footer-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      padding-top: 12px;
+      margin-top: auto;
+    }
+
+    /* Slider Division */
+    .clip-wrapper {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%);
+    }
+
+    .slider-divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      background: #4f46e5;
+      box-shadow: 0 0 12px rgba(79, 70, 229, 0.4);
+      cursor: ew-resize;
+      z-index: 20;
+    }
+
+    .slider-pill {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: ew-resize;
+      color: #0f172a;
+    }
+
+    .slider-pill:hover {
+      transform: translate(-50%, -50%) scale(1.08);
+    }
+
+    .slider-pill svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      fill: none;
+    }
+
+    /* Tags on Stage */
+    .layer-tag {
+      position: absolute;
+      top: 16px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .tag-before {
+      left: 16px;
+      background: rgba(15, 23, 42, 0.85);
+      color: #ffffff;
+    }
+
+    .tag-after {
+      right: 16px;
+      background: #059669;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+    }
+
+    /* Metrics Grid */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .stat-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-tertiary);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .stat-sub {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .stat-value.highlight {
+      color: var(--success);
+    }
+
+    /* Action Panel */
+    .action-panel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 26px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 11px 22px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
+    }
+
+    .btn-action svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2.2;
+      stroke: currentColor;
+      fill: none;
+    }
+
+    .btn-solid {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+    }
+
+    .btn-solid:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* State Switcher Bar */
+    .eval-switcher {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-card);
+      border: 1px solid var(--border-highlight);
+      padding: 6px 12px;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+
+    .eval-label {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      padding: 0 10px;
+      font-weight: 600;
+    }
+
+    .eval-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+
+    .eval-btn.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    @media (max-width: 860px) {
+      .metrics-row { grid-template-columns: repeat(2, 1fr); }
+      .cards-row { grid-template-columns: 1fr; }
+      header { padding: 14px 20px; }
+      main { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header>
+    <div class="brand-group">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+      </div>
+      <div class="brand-title">ppt-kit</div>
+      <span class="brand-tag">v0.3.0</span>
+    </div>
+
+    <div class="header-right">
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>本地引擎就绪 (127.0.0.1:8765)</span>
+      </div>
+
+      <!-- Theme Switcher Button -->
+      <button class="theme-toggle-btn" id="themeBtn" onclick="toggleTheme()" title="切换浅色 / 深色模式">
+        <svg id="themeIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main>
+
+    <!-- STATE 1: UPLOAD PANEL -->
+    <div id="panel-upload" class="studio-panel">
+      <div class="drop-surface" id="dropArea" onclick="startSimulatedFlow()">
+        <div class="icon-halo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </div>
+        <h2 class="drop-heading">拖拽幻灯片文件到此处即可还原</h2>
+        <p class="drop-desc">支持矢量/扫描版 PDF、纯图片版 PPTX 及各类图片。全流程在本地芯片离线完成，绝不上传云端。</p>
+        <div class="format-pills">
+          <span class="format-pill">.PDF (矢量/扫描)</span>
+          <span class="format-pill">.PPTX (纯图片版)</span>
+          <span class="format-pill">.PNG / .JPG / .WEBP</span>
+        </div>
+      </div>
+
+      <!-- Advanced Drawer Toggle -->
+      <div class="config-trigger" onclick="toggleConfigTray()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>高级转换参数设置</span>
+        <span id="chevron" style="font-size: 0.75rem; transition: transform 0.2s;">▼</span>
+      </div>
+
+      <div class="config-tray hidden" id="configTray">
+        <div class="tray-field">
+          <label>解析策略 (Route)</label>
+          <select>
+            <option value="auto">自动探测 (矢量优先 $\rightarrow$ 位图降级)</option>
+            <option value="vector">强制矢量直析 (零误差/秒级)</option>
+            <option value="raster">强制位图多图层拆解</option>
+          </select>
+        </div>
+        <div class="tray-field">
+          <label>位图 OCR 引擎</label>
+          <select>
+            <option value="auto">系统自动调度 (macOS 原生 / CPU ONNX)</option>
+            <option value="apple_vision">Apple Vision (macOS 硬件加速)</option>
+            <option value="rapidocr">RapidOCR (跨平台 CPU 推理)</option>
+          </select>
+        </div>
+        <div class="tray-field">
+          <label>页码过滤范围</label>
+          <input type="text" placeholder="例如: 1-3, 5 (留空表示转换全部)">
+        </div>
+      </div>
+    </div>
+
+    <!-- STATE 2: PIPELINE PROCESSING -->
+    <div id="panel-processing" class="studio-panel" style="display: none;">
+      <div class="stream-header">
+        <div>
+          <h3 class="stream-title">正在逆向还原幻灯片图层...</h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 4px;">正在执行文本神经识别、边缘梯度网格分析与图层分离</p>
+        </div>
+        <div class="stream-clock" id="clockTicker">0.84s</div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-thumb" id="progressThumb"></div>
+      </div>
+
+      <div class="timeline-steps">
+        <div class="timeline-node done">
+          <div class="node-indicator">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <span>输入源校验：检测到混合位图版面 (1920 × 1080 px)</span>
+          <span class="node-latency">0.12s</span>
+        </div>
+        <div class="timeline-node done">
+          <div class="node-indicator">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <span>文字抽取与样式抽样：完成 24 处文本框聚类与字号颜色估算</span>
+          <span class="node-latency">0.48s</span>
+        </div>
+        <div class="timeline-node done">
+          <div class="node-indicator">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <span>拓扑网格检测：推断出 3 个原生圆角容器与 1 组原生表格</span>
+          <span class="node-latency">0.24s</span>
+        </div>
+        <div class="timeline-node active">
+          <div class="node-indicator">
+            <div class="active-spinner"></div>
+          </div>
+          <span>底图笔画平滑抹除中，正在合成 PowerPoint 原生 DrawingML 封包...</span>
+          <span class="node-latency">处理中</span>
+        </div>
+        <div class="timeline-node">
+          <div class="node-indicator"></div>
+          <span>无头渲染回检与 SSIM 结构保真度质量评估</span>
+          <span class="node-latency">等待中</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATE 3: RESULTS & SPLIT SLIDER VIEW -->
+    <div id="panel-result" class="studio-panel" style="display: none;">
+      <div class="inspector-bar">
+        <div class="target-file">
+          <div class="file-name">ai-beginner-workflow.jpg</div>
+          <span class="engine-chip">⚡️ 1.42s 本地极速重构</span>
+        </div>
+
+        <div class="view-segmented">
+          <button class="segmented-btn active" onclick="setMode('split')">滑动对比</button>
+          <button class="segmented-btn" onclick="setMode('after')">仅看可编辑 PPTX</button>
+          <button class="segmented-btn" onclick="setMode('before')">仅看原图</button>
+        </div>
+      </div>
+
+      <!-- Split Slider Canvas Stage -->
+      <div class="slider-stage" id="sliderStage">
+        <!-- AFTER LAYER: Clean, editable PowerPoint visual output -->
+        <div class="slide-canvas after-layer" id="afterLayer">
+          <div class="slide-topline">
+            <div class="category-capsule">知识工作流架构</div>
+            <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;">第 1 / 1 页</span>
+          </div>
+          <div class="slide-hero">
+            <h1 class="slide-h1">AI 驱动的企业级知识管理体系</h1>
+            <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
+          </div>
+          <div class="cards-row">
+            <div class="pres-card">
+              <span class="card-meta-tag">原生 Shape</span>
+              <div class="pres-card-title">01 智能解析</div>
+              <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
+            </div>
+            <div class="pres-card">
+              <span class="card-meta-tag">原生 Shape</span>
+              <div class="pres-card-title">02 拓扑推断</div>
+              <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
+            </div>
+            <div class="pres-card">
+              <span class="card-meta-tag">原生 Table</span>
+              <div class="pres-card-title">03 矢量合成</div>
+              <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
+            </div>
+          </div>
+          <div class="slide-footer-meta">
+            <span>由 ppt-kit v0.3.0 逆向还原</span>
+            <span>100% 矢量与原生 PowerPoint 对象</span>
+          </div>
+        </div>
+
+        <!-- BEFORE LAYER: Original raster graphic, clipped by split slider -->
+        <div class="clip-wrapper" id="clipWrapper">
+          <div class="slide-canvas before-layer">
+            <div class="slide-topline">
+              <div class="category-capsule" style="opacity: 0.9;">知识工作流架构</div>
+              <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;">第 1 / 1 页</span>
+            </div>
+            <div class="slide-hero">
+              <h1 class="slide-h1" style="filter: contrast(0.92);">AI 驱动的企业级知识管理体系</h1>
+              <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
+            </div>
+            <div class="cards-row">
+              <div class="pres-card" style="box-shadow: none;">
+                <div class="pres-card-title">01 智能解析</div>
+                <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
+              </div>
+              <div class="pres-card" style="box-shadow: none;">
+                <div class="pres-card-title">02 拓扑推断</div>
+                <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
+              </div>
+              <div class="pres-card" style="box-shadow: none;">
+                <div class="pres-card-title">03 矢量合成</div>
+                <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
+              </div>
+            </div>
+            <div class="slide-footer-meta">
+              <span>原始不可编辑位图</span>
+              <span>平面栅格位图</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slider Line & Handle -->
+        <div class="slider-divider" id="dividerLine">
+          <div class="slider-pill">
+            <svg viewBox="0 0 24 24"><path d="m9 18-6-6 6-6"></path><path d="m15 6 6 6-6 6"></path></svg>
+          </div>
+        </div>
+
+        <div class="layer-tag tag-before">原图 (不可编辑位图)</div>
+        <div class="layer-tag tag-after">PPTX 渲染图 (原生可编辑图层)</div>
+      </div>
+
+      <!-- Precision Quality Metrics -->
+      <div class="metrics-row">
+        <div class="stat-box">
+          <div class="stat-label">SSIM 结构保真度</div>
+          <div class="stat-value highlight">0.984 <span class="stat-sub">极高还原度</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">可编辑文本段</div>
+          <div class="stat-value">24 <span class="stat-sub">100% 召回</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">原生 PPT 形状</div>
+          <div class="stat-value">3 <span class="stat-sub">个容器</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">本地重构耗时</div>
+          <div class="stat-value">1.42s <span class="stat-sub">Apple Vision</span></div>
+        </div>
+      </div>
+
+      <!-- Footer Action Panel -->
+      <div class="action-panel">
+        <button class="btn-action btn-ghost" onclick="resetToUpload()">
+          <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+          <span>转换另一个文件</span>
+        </button>
+        <div style="display: flex; gap: 12px;">
+          <button class="btn-action btn-ghost" onclick="alert('已在系统访达/资源管理器中定位到: out/ai-beginner-workflow.pptx')">
+            <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span>在文件夹中查看</span>
+          </button>
+          <button class="btn-action btn-solid" onclick="alert('正在下载可编辑文件: ai-beginner-workflow.pptx')">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>下载原生可编辑 PPTX</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Prototype State Toggle Switcher -->
+  <div class="eval-switcher">
+    <span class="eval-label">演示视图：</span>
+    <button class="eval-btn active" id="btn-up" onclick="setPanel('upload')">1. 上传页面</button>
+    <button class="eval-btn" id="btn-pr" onclick="setPanel('processing')">2. 实时进度流</button>
+    <button class="eval-btn" id="btn-re" onclick="setPanel('result')">3. 效果对比与导出</button>
+  </div>
+
+  <script>
+    // Theme Toggle Functionality
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+
+      const icon = document.getElementById('themeIcon');
+      if (next === 'dark') {
+        icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+      } else {
+        icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+      }
+    }
+
+    // Panel Visibility Switcher
+    function setPanel(name) {
+      document.getElementById('panel-upload').style.display = name === 'upload' ? 'block' : 'none';
+      document.getElementById('panel-processing').style.display = name === 'processing' ? 'block' : 'none';
+      document.getElementById('panel-result').style.display = name === 'result' ? 'block' : 'none';
+
+      document.getElementById('btn-up').classList.toggle('active', name === 'upload');
+      document.getElementById('btn-pr').classList.toggle('active', name === 'processing');
+      document.getElementById('btn-re').classList.toggle('active', name === 'result');
+    }
+
+    function toggleConfigTray() {
+      const tray = document.getElementById('configTray');
+      const chevron = document.getElementById('chevron');
+      const isHidden = tray.classList.contains('hidden');
+      tray.classList.toggle('hidden');
+      chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    // Simulated Execution Flow
+    function startSimulatedFlow() {
+      setPanel('processing');
+      let progress = 10;
+      let time = 0.1;
+      const thumb = document.getElementById('progressThumb');
+      const clock = document.getElementById('clockTicker');
+
+      const interval = setInterval(() => {
+        progress += 18;
+        time += 0.25;
+        clock.textContent = time.toFixed(2) + 's';
+        if (progress >= 100) {
+          thumb.style.width = '100%';
+          clearInterval(interval);
+          setTimeout(() => setPanel('result'), 400);
+        } else {
+          thumb.style.width = progress + '%';
+        }
+      }, 250);
+    }
+
+    function resetToUpload() {
+      setPanel('upload');
+      document.getElementById('progressThumb').style.width = '68%';
+      document.getElementById('clockTicker').textContent = '0.84s';
+    }
+
+    // Interactive Precision Split Slider
+    const stage = document.getElementById('sliderStage');
+    const clipWrapper = document.getElementById('clipWrapper');
+    const divider = document.getElementById('dividerLine');
+    let isDragging = false;
+
+    function moveDivider(clientX) {
+      const rect = stage.getBoundingClientRect();
+      let ratio = (clientX - rect.left) / rect.width;
+      ratio = Math.max(0, Math.min(1, ratio));
+      const pct = (ratio * 100).toFixed(2);
+
+      clipWrapper.style.clipPath = `polygon(0 0, ${pct}% 0, ${pct}% 100%, 0 100%)`;
+      divider.style.left = `${pct}%`;
+    }
+
+    divider.addEventListener('mousedown', () => isDragging = true);
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      moveDivider(e.clientX);
+    });
+
+    divider.addEventListener('touchstart', () => isDragging = true);
+    window.addEventListener('touchend', () => isDragging = false);
+    window.addEventListener('touchmove', (e) => {
+      if (!isDragging || !e.touches[0]) return;
+      moveDivider(e.touches[0].clientX);
+    });
+
+    // View Modes
+    function setMode(mode) {
+      document.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+
+      if (mode === 'split') {
+        clipWrapper.style.clipPath = 'polygon(0 0, 50% 0, 50% 100%, 0 100%)';
+        divider.style.display = 'block';
+        divider.style.left = '50%';
+      } else if (mode === 'after') {
+        clipWrapper.style.clipPath = 'polygon(0 0, 0 0, 0 100%, 0 100%)';
+        divider.style.display = 'none';
+      } else if (mode === 'before') {
+        clipWrapper.style.clipPath = 'polygon(0 0, 100% 0, 100% 100%, 0 100%)';
+        divider.style.display = 'none';
+      }
+    }
+
+    // Drag-over styling
+    const dropArea = document.getElementById('dropArea');
+    dropArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropArea.classList.add('dragover');
+    });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+    dropArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropArea.classList.remove('dragover');
+      startSimulatedFlow();
+    });
+  </script>
+</body>
+</html>
