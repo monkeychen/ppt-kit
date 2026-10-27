@@ -4,7 +4,7 @@ product: pptkit
 version: v0.3.0
 milestone: M2
 date: 2026-10-27
-status: draft
+status: approved
 ---
 
 # Spec：v0.3.0-M2 核心转换引擎驱动与 SSE 进度实时流
@@ -152,10 +152,11 @@ status: draft
 
 ## 5. Task 拆解与执行计划
 
-- [ ] **Task 1: 会话转换任务调度器与事件队列 (Red-Green-Refactor)**
+- [x] **Task 1: 会话转换任务调度器与事件队列 (Red-Green-Refactor)**
   - 编写 `tests/unit/gui/test_task_runner.py`（红）
   - 实现 `src/pptkit/gui/tasks.py`（绿）
   - 统一转换流水线执行器与监听队列，实现事件回放与线程安全
+  - 验证证据：`uv run pytest tests/unit/gui/test_task_runner.py`（3 passed in 0.65s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): implement async conversion task runner and event queue`
 - [ ] **Task 2: SSE 进度流式端点与转换调度路由 (Red-Green-Refactor)**
   - 编写 `tests/integration/test_gui_sse.py`（红）
