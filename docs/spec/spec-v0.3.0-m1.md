@@ -4,7 +4,7 @@ product: pptkit
 version: v0.3.0
 milestone: M1
 date: 2026-10-27
-status: approved
+status: completed
 ---
 
 # Spec：v0.3.0-M1 GUI 交互原型落地与本地服务基座
@@ -152,7 +152,28 @@ sequenceDiagram
   - 端口防冲突自动递增、浏览器自动拉起与平滑退出支持
   - 验证证据：`uv run pytest tests/unit/gui/test_cli_gui.py`（4 passed in 0.38s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(cli): add pptkit gui command with browser auto-launch`
-- [ ] **Task 5: M1 里程碑质量校验与验收记录**
-  - 全量自动化测试回归（`pytest tests/unit tests/integration`）
-  - 代码规范检查（`ruff check`, `ruff format`, `pyright`）
+- [x] **Task 5: M1 里程碑质量校验与验收记录**
+  - 全量自动化测试回归（`pytest tests/unit tests/integration`，64 passed in 44.13s）
+  - 代码规范检查（`ruff check` 0 errors, `ruff format` clean, `pyright` 0 errors）
+  - CLI 启动验证（`uv run pptkit gui --help` 正常打印参数与说明）
   - 追加 Spec 验收记录章节并提请确认
+
+---
+
+## 6. 里程碑验收记录 (Acceptance Record)
+
+- **验收日期**：2026-10-27
+- **里程碑状态**：`completed` (全部交付并通过验证)
+- **依赖与包体积变动**：引入 0 个外部第三方依赖包（全部基于 Python 3.12 标准库 `http.server`、`socket`、`webbrowser` 及项目原有依赖 `pymupdf`、`pillow`、`python-pptx`），100% 保持 PyInstaller 单文件跨平台免编译兼容。
+- **自动化测试回归结果**：
+  - `tests/unit` + `tests/integration`：共计 **64 passed**，0 failed（耗时 44.13s）。
+  - 新增测试用例：
+    - `tests/unit/gui/test_multipart.py`（3 passed）：覆盖合法多部分表单解析、空包防御、畸形 boundary 异常。
+    - `tests/unit/gui/test_session.py`（3 passed）：覆盖图片/PDF 元数据提取、非法格式拦截、会话工作区隔离。
+    - `tests/unit/gui/test_cli_gui.py`（4 passed）：覆盖端口可用探测、端口被占用自动顺延递增、端口耗尽异常、CLI `--help` 参数解析。
+    - `tests/integration/test_gui_server.py`（3 passed）：覆盖本地服务器拉起、`/` 与 `/api/health` 路由、真实文件上传及非法类型拦截。
+- **代码规范与类型安全**：
+  - `ruff check .`：0 errors
+  - `ruff format --check .`：0 reformatted (98 files clean)
+  - `pyright`：0 errors, 0 warnings, 0 informations
+
