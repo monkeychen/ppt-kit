@@ -4,7 +4,7 @@ product: pptkit
 version: v0.3.0
 milestone: M2
 date: 2026-10-27
-status: approved
+status: completed
 ---
 
 # Spec：v0.3.0-M2 核心转换引擎驱动与 SSE 进度实时流
@@ -175,7 +175,26 @@ status: approved
   - 同步更新原型文档 `docs/prototype/gui_prototype.html`
   - 验证证据：全量 GUI 测试（19 passed in 9.38s），Ruff / Pyright 0 errors
   - Git Commit: `feat(gui): connect web frontend with sse progress and download`
-- [ ] **Task 5: M2 里程碑全量质量回归与验收记录**
-  - 全量自动化测试回归（`pytest tests/unit tests/integration`）
-  - 代码规范与类型检查（`ruff check`, `ruff format`, `pyright`）
+- [x] **Task 5: M2 里程碑全量质量回归与验收记录**
+  - 全量自动化测试回归（`pytest tests/unit tests/integration`，70 passed in 51.21s）
+  - 代码规范与类型检查（`ruff check` 0 errors, `ruff format` clean, `pyright` 0 errors）
   - 更新 Spec 验收记录并提交
+
+---
+
+## 6. 里程碑验收记录 (Acceptance Record)
+
+- **验收日期**：2026-10-27
+- **里程碑状态**：`completed` (全部交付并通过全量回归验证)
+- **依赖与包体积变动**：引入 0 个外部第三方依赖包（全部基于 Python 3.12 标准库 `queue`, `threading`, `http.server`, `urllib`），保持 PyInstaller 单文件跨平台构建 100% 绿色通过。
+- **自动化测试回归结果**：
+  - `tests/unit` + `tests/integration`：共计 **70 passed**，0 failed（耗时 51.21s）。
+  - 新增测试用例：
+    - `tests/unit/gui/test_task_runner.py`（3 passed）：覆盖任务线程隔离执行、SSE 事件队列广播、历史事件流式回放、异常平稳收敛。
+    - `tests/integration/test_gui_sse.py`（1 passed）：真实 HTTP 端到端校验，客户端经 `text/event-stream` 接收结构化转换状态帧直到 `complete`。
+    - `tests/integration/test_gui_preview_download.py`（2 passed）：覆盖原图 PNG/PDF 实时渲染切片输出、重构图预览输出、PPTX 附件二进制流式下载与质量诊断报告下发。
+- **代码规范与类型安全**：
+  - `ruff check .`：0 errors
+  - `ruff format --check .`：0 reformatted (103 files clean)
+  - `pyright`：0 errors, 0 warnings, 0 informations
+
