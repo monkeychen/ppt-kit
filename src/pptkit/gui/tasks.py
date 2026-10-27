@@ -335,8 +335,20 @@ class ConversionTask:
                     "succeeded_pages": succeeded,
                     "failed_pages": failed,
                     "avg_ssim": round(avg_ssim, 4),
+                    "total_pages": total_pages,
+                    "pages": [
+                        {
+                            "page_index": p.page_index,
+                            "route": p.route,
+                            "status": p.status,
+                            "ssim": round(p.ssim, 4) if p.ssim is not None else None,
+                            "editable_elements": p.editable_elements,
+                        }
+                        for p in doc_report.pages
+                    ],
                     "output_pptx": str(pptx_out) if pptx_out.exists() else None,
                     "download_url": f"/api/download/{self.session_info.session_id}",
+                    "report_url": f"/api/report/{self.session_info.session_id}",
                 }
             )
 

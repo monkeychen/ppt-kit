@@ -505,6 +505,296 @@
       box-shadow: var(--shadow-sm);
     }
 
+    .toggle-overlay-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .toggle-overlay-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .toggle-overlay-btn.active {
+      background: #fef3c7;
+      border-color: #f59e0b;
+      color: #b45309;
+    }
+
+    [data-theme="dark"] .toggle-overlay-btn.active {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: #f59e0b;
+      color: #fde68a;
+    }
+
+    /* Stage Canvas Transform & Zoom */
+    .stage-transform-wrapper {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    .stage-controls-overlay {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border-radius: 8px;
+      padding: 4px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .stage-ctrl-btn {
+      background: transparent;
+      border: none;
+      color: #f8fafc;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    .stage-ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .zoom-label {
+      font-size: 0.72rem;
+      color: #cbd5e1;
+      font-family: var(--font-mono);
+      min-width: 44px;
+      text-align: center;
+      user-select: none;
+    }
+
+    /* Elements Overlay Layer */
+    .elements-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    .elem-box {
+      position: absolute;
+      border: 2px dashed #f59e0b;
+      background: rgba(245, 158, 11, 0.2);
+      border-radius: 4px;
+      pointer-events: auto;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .elem-box:hover {
+      background: rgba(245, 158, 11, 0.45);
+      border-color: #d97706;
+    }
+
+    .elem-tooltip {
+      position: absolute;
+      display: none;
+      z-index: 60;
+      background: rgba(15, 23, 42, 0.94);
+      color: #f8fafc;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      pointer-events: none;
+      max-width: 280px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      line-height: 1.45;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .elem-tooltip-title {
+      font-weight: 700;
+      color: #fbbf24;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .elem-tooltip-score {
+      font-family: var(--font-mono);
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .elem-tooltip-status {
+      font-size: 0.72rem;
+      color: #f87171;
+      margin-bottom: 4px;
+    }
+
+    .elem-tooltip-text {
+      margin-top: 6px;
+      color: #cbd5e1;
+      font-size: 0.75rem;
+      word-break: break-all;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+
+    /* Multi-Page Thumbnail Strip */
+    .thumb-strip-container {
+      margin-top: 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .thumb-strip-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .thumb-strip-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .thumb-strip-track {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      scroll-behavior: smooth;
+    }
+
+    .thumb-strip-track::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .thumb-strip-track::-webkit-scrollbar-thumb {
+      background: var(--border-highlight);
+      border-radius: 3px;
+    }
+
+    .thumb-card {
+      flex: 0 0 148px;
+      aspect-ratio: 16 / 9;
+      border-radius: 8px;
+      border: 2px solid var(--border-subtle);
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+      background: #ffffff;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .thumb-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-highlight);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .thumb-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    .thumb-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #ffffff;
+      display: block;
+    }
+
+    .thumb-badge-page {
+      position: absolute;
+      bottom: 6px;
+      left: 6px;
+      background: rgba(15, 23, 42, 0.78);
+      color: #ffffff;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      backdrop-filter: blur(4px);
+    }
+
+    .thumb-badge-ssim {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+
+    .badge-ssim-high {
+      background: #059669;
+      color: #ffffff;
+    }
+
+    .badge-ssim-mid {
+      background: #d97706;
+      color: #ffffff;
+    }
+
+    .badge-ssim-low {
+      background: #dc2626;
+      color: #ffffff;
+    }
+
+    .shortcuts-hint {
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kbd-key {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 0.68rem;
+      color: var(--text-secondary);
+    }
+
     /* Slide Stage on Studio Desk */
     .slider-stage {
       position: relative;
@@ -980,95 +1270,132 @@
           <span class="engine-chip" id="engineChip">⚡️ 1.42s 本地极速重构</span>
         </div>
 
-        <div class="view-segmented">
-          <button class="segmented-btn active" onclick="setMode('split')">滑动对比</button>
-          <button class="segmented-btn" onclick="setMode('after')">仅看可编辑 PPTX</button>
-          <button class="segmented-btn" onclick="setMode('before')">仅看原图</button>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <div class="view-segmented">
+            <button class="segmented-btn active" id="btnModeSplit" onclick="setMode('split')">滑动对比</button>
+            <button class="segmented-btn" id="btnModeAfter" onclick="setMode('after')">仅看可编辑 PPTX</button>
+            <button class="segmented-btn" id="btnModeBefore" onclick="setMode('before')">仅看原图</button>
+            <button class="segmented-btn" id="btnModeHeatmap" onclick="setMode('heatmap')">差异热力图</button>
+          </div>
+
+          <button class="toggle-overlay-btn" id="btnToggleOverlay" onclick="toggleOverlay()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <span>标注低置信元素</span>
+          </button>
         </div>
       </div>
 
       <!-- Split Slider Canvas Stage -->
       <div class="slider-stage" id="sliderStage">
-        <!-- AFTER LAYER: Clean, editable PowerPoint visual output -->
-        <div class="slide-canvas after-layer" id="afterLayer">
-          <img id="afterImg" style="display:none; width:100%; height:100%; object-fit:contain; border-radius:12px; background:white;">
-          <div id="afterMock">
-            <div class="slide-topline">
-              <div class="category-capsule">知识工作流架构</div>
-              <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;">第 1 / 1 页</span>
-            </div>
-            <div class="slide-hero">
-              <h1 class="slide-h1">AI 驱动的企业级知识管理体系</h1>
-              <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
-            </div>
-            <div class="cards-row">
-              <div class="pres-card">
-                <span class="card-meta-tag">原生 Shape</span>
-                <div class="pres-card-title">01 智能解析</div>
-                <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
-              </div>
-              <div class="pres-card">
-                <span class="card-meta-tag">原生 Shape</span>
-                <div class="pres-card-title">02 拓扑推断</div>
-                <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
-              </div>
-              <div class="pres-card">
-                <span class="card-meta-tag">原生 Table</span>
-                <div class="pres-card-title">03 矢量合成</div>
-                <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
-              </div>
-            </div>
-            <div class="slide-footer-meta">
-              <span>由 ppt-kit v0.3.0 逆向还原</span>
-              <span>100% 矢量与原生 PowerPoint 对象</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- BEFORE LAYER: Original raster graphic, clipped by split slider -->
-        <div class="clip-wrapper" id="clipWrapper">
-          <div class="slide-canvas before-layer">
-            <img id="beforeImg" style="display:none; width:100%; height:100%; object-fit:contain; border-radius:12px; background:white;">
-            <div id="beforeMock">
+        <div class="stage-transform-wrapper" id="stageTransformWrapper">
+          <!-- AFTER LAYER: Clean, editable PowerPoint visual output -->
+          <div class="slide-canvas after-layer" id="afterLayer">
+            <img id="afterImg" style="display:none; width:100%; height:100%; object-fit:contain; border-radius:12px; background:white;">
+            <div id="afterMock">
               <div class="slide-topline">
-                <div class="category-capsule" style="opacity: 0.9;">知识工作流架构</div>
-                <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;">第 1 / 1 页</span>
+                <div class="category-capsule">知识工作流架构</div>
+                <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;" id="afterPageTag">第 1 / 1 页</span>
               </div>
               <div class="slide-hero">
-                <h1 class="slide-h1" style="filter: contrast(0.92);">AI 驱动的企业级知识管理体系</h1>
+                <h1 class="slide-h1">AI 驱动的企业级知识管理体系</h1>
                 <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
               </div>
               <div class="cards-row">
-                <div class="pres-card" style="box-shadow: none;">
+                <div class="pres-card">
+                  <span class="card-meta-tag">原生 Shape</span>
                   <div class="pres-card-title">01 智能解析</div>
                   <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
                 </div>
-                <div class="pres-card" style="box-shadow: none;">
+                <div class="pres-card">
+                  <span class="card-meta-tag">原生 Shape</span>
                   <div class="pres-card-title">02 拓扑推断</div>
                   <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
                 </div>
-                <div class="pres-card" style="box-shadow: none;">
+                <div class="pres-card">
+                  <span class="card-meta-tag">原生 Table</span>
                   <div class="pres-card-title">03 矢量合成</div>
                   <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
                 </div>
               </div>
               <div class="slide-footer-meta">
-                <span>原始不可编辑位图</span>
-                <span>平面栅格位图</span>
+                <span>由 ppt-kit v0.3.0 逆向还原</span>
+                <span>100% 矢量与原生 PowerPoint 对象</span>
               </div>
+            </div>
+            <!-- Elements Overlay for Low Confidence Items -->
+            <div class="elements-overlay" id="elementsOverlay" style="display:none;"></div>
+          </div>
+
+          <!-- BEFORE LAYER: Original raster graphic, clipped by split slider -->
+          <div class="clip-wrapper" id="clipWrapper">
+            <div class="slide-canvas before-layer">
+              <img id="beforeImg" style="display:none; width:100%; height:100%; object-fit:contain; border-radius:12px; background:white;">
+              <div id="beforeMock">
+                <div class="slide-topline">
+                  <div class="category-capsule" style="opacity: 0.9;">知识工作流架构</div>
+                  <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;" id="beforePageTag">第 1 / 1 页</span>
+                </div>
+                <div class="slide-hero">
+                  <h1 class="slide-h1" style="filter: contrast(0.92);">AI 驱动的企业级知识管理体系</h1>
+                  <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
+                </div>
+                <div class="cards-row">
+                  <div class="pres-card" style="box-shadow: none;">
+                    <div class="pres-card-title">01 智能解析</div>
+                    <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
+                  </div>
+                  <div class="pres-card" style="box-shadow: none;">
+                    <div class="pres-card-title">02 拓扑推断</div>
+                    <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
+                  </div>
+                  <div class="pres-card" style="box-shadow: none;">
+                    <div class="pres-card-title">03 矢量合成</div>
+                    <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
+                  </div>
+                </div>
+                <div class="slide-footer-meta">
+                  <span>原始不可编辑位图</span>
+                  <span>平面栅格位图</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slider Line & Handle -->
+          <div class="slider-divider" id="dividerLine">
+            <div class="slider-pill">
+              <svg viewBox="0 0 24 24"><path d="m9 18-6-6 6-6"></path><path d="m15 6 6 6-6 6"></path></svg>
             </div>
           </div>
         </div>
 
-        <!-- Slider Line & Handle -->
-        <div class="slider-divider" id="dividerLine">
-          <div class="slider-pill">
-            <svg viewBox="0 0 24 24"><path d="m9 18-6-6 6-6"></path><path d="m15 6 6 6-6 6"></path></svg>
+        <!-- Floating Tooltip for Element Inspection -->
+        <div class="elem-tooltip" id="elemTooltip"></div>
+
+        <div class="layer-tag tag-before" id="tagBefore">原图 (不可编辑位图)</div>
+        <div class="layer-tag tag-after" id="tagAfter">PPTX 渲染图 (原生可编辑图层)</div>
+
+        <!-- Zoom and Reset Controls Overlay -->
+        <div class="stage-controls-overlay">
+          <button class="stage-ctrl-btn" onclick="zoomStep(-0.2)" title="缩小 (滚轮下滑)">−</button>
+          <span class="zoom-label" id="zoomLabel">100%</span>
+          <button class="stage-ctrl-btn" onclick="zoomStep(0.2)" title="放大 (滚轮上滑)">+</button>
+          <button class="stage-ctrl-btn" onclick="resetTransform()" title="重置视角 (按 0)">1:1</button>
+        </div>
+      </div>
+
+      <!-- Multi-Page Thumbnail Strip -->
+      <div class="thumb-strip-container" id="thumbStripContainer" style="display: none;">
+        <div class="thumb-strip-header">
+          <span class="thumb-strip-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            <span>幻灯片页面列表 (<span id="thumbCount">1</span> 页)</span>
+          </span>
+          <div class="shortcuts-hint">
+            <span>快捷键：<span class="kbd-key">1</span>-<span class="kbd-key">4</span> 视图切换 | <span class="kbd-key">[</span> <span class="kbd-key">]</span> 翻页 | <span class="kbd-key">0</span> 重置缩放</span>
           </div>
         </div>
-
-        <div class="layer-tag tag-before">原图 (不可编辑位图)</div>
-        <div class="layer-tag tag-after">PPTX 渲染图 (原生可编辑图层)</div>
+        <div class="thumb-strip-track" id="thumbTrack"></div>
       </div>
 
       <!-- Precision Quality Metrics -->
@@ -1267,9 +1594,339 @@
         }
       };
 
-      eventSource.onerror = () => {
-        // Handled gracefully
+    // M3 State
+    let currentPages = [];
+    let currentPageIndex = 0;
+    let currentMode = 'split'; // 'split' | 'after' | 'before' | 'heatmap'
+    let isOverlayActive = false;
+    let cachedElements = {};
+
+    // Transform State (Pan & Zoom)
+    let scale = 1.0;
+    let panX = 0;
+    let panY = 0;
+    let isDraggingDivider = false;
+    let isPanning = false;
+    let startPanX = 0;
+    let startPanY = 0;
+    let initialPanX = 0;
+    let initialPanY = 0;
+
+    const stage = document.getElementById('sliderStage');
+    const stageWrapper = document.getElementById('stageTransformWrapper');
+    const clipWrapper = document.getElementById('clipWrapper');
+    const divider = document.getElementById('dividerLine');
+    const tagBefore = document.getElementById('tagBefore');
+    const tagAfter = document.getElementById('tagAfter');
+    const zoomLabel = document.getElementById('zoomLabel');
+    const elementsOverlay = document.getElementById('elementsOverlay');
+    const elemTooltip = document.getElementById('elemTooltip');
+    const thumbStripContainer = document.getElementById('thumbStripContainer');
+    const thumbTrack = document.getElementById('thumbTrack');
+    const thumbCount = document.getElementById('thumbCount');
+    const btnToggleOverlay = document.getElementById('btnToggleOverlay');
+
+    function applyTransform() {
+      stageWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+      zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+      if (scale > 1.0) {
+        stage.style.cursor = 'grab';
+      } else {
+        stage.style.cursor = 'default';
+      }
+    }
+
+    function resetTransform() {
+      scale = 1.0;
+      panX = 0;
+      panY = 0;
+      applyTransform();
+    }
+
+    function zoomStep(delta) {
+      const newScale = Math.max(0.5, Math.min(4.0, scale + delta));
+      if (newScale === scale) return;
+      const rect = stage.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      panX = centerX - (centerX - panX) * (newScale / scale);
+      panY = centerY - (centerY - panY) * (newScale / scale);
+      scale = newScale;
+      applyTransform();
+    }
+
+    // Transform event listeners (wheel & double-click & pan)
+    stage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = stage.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+      const newScale = Math.max(0.5, Math.min(4.0, scale * zoomFactor));
+      if (newScale === scale) return;
+
+      panX = mouseX - (mouseX - panX) * (newScale / scale);
+      panY = mouseY - (mouseY - panY) * (newScale / scale);
+      scale = newScale;
+      applyTransform();
+    }, { passive: false });
+
+    stage.addEventListener('dblclick', (e) => {
+      if (e.target.closest('#dividerLine')) return;
+      resetTransform();
+    });
+
+    stage.addEventListener('mousedown', (e) => {
+      if (divider.contains(e.target)) {
+        isDraggingDivider = true;
+        return;
+      }
+      if (scale > 1.0 || e.button === 1 || e.altKey) {
+        isPanning = true;
+        startPanX = e.clientX;
+        startPanY = e.clientY;
+        initialPanX = panX;
+        initialPanY = panY;
+        stage.style.cursor = 'grabbing';
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDraggingDivider) {
+        moveDivider(e.clientX);
+      } else if (isPanning) {
+        panX = initialPanX + (e.clientX - startPanX);
+        panY = initialPanY + (e.clientY - startPanY);
+        applyTransform();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDraggingDivider = false;
+      if (isPanning) {
+        isPanning = false;
+        stage.style.cursor = scale > 1.0 ? 'grab' : 'default';
+      }
+    });
+
+    divider.addEventListener('touchstart', () => isDraggingDivider = true);
+    window.addEventListener('touchend', () => isDraggingDivider = false);
+    window.addEventListener('touchmove', (e) => {
+      if (!isDraggingDivider || !e.touches[0]) return;
+      moveDivider(e.touches[0].clientX);
+    });
+
+    function moveDivider(clientX) {
+      const rect = stageWrapper.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      let ratio = (clientX - rect.left) / rect.width;
+      ratio = Math.max(0, Math.min(1, ratio));
+      const pct = (ratio * 100).toFixed(2);
+
+      clipWrapper.style.clipPath = `polygon(0 0, ${pct}% 0, ${pct}% 100%, 0 100%)`;
+      divider.style.left = `${pct}%`;
+    }
+
+    // View Modes
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(
+        mode === 'split' ? 'btnModeSplit' :
+        mode === 'after' ? 'btnModeAfter' :
+        mode === 'before' ? 'btnModeBefore' : 'btnModeHeatmap'
+      );
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const afterImg = document.getElementById('afterImg');
+      if (mode === 'heatmap') {
+        if (currentSessionId) {
+          afterImg.src = `/api/preview/${currentSessionId}/heatmap/${currentPageIndex}`;
+        }
+        clipWrapper.style.clipPath = 'polygon(0 0, 0 0, 0 100%, 0 100%)';
+        divider.style.display = 'none';
+        tagAfter.textContent = '像素差异热力图 (红蓝误差谱)';
+      } else if (mode === 'split') {
+        if (currentSessionId) {
+          afterImg.src = `/api/preview/${currentSessionId}/reconstructed/${currentPageIndex}`;
+        }
+        clipWrapper.style.clipPath = 'polygon(0 0, 50% 0, 50% 100%, 0 100%)';
+        divider.style.display = 'block';
+        divider.style.left = '50%';
+        tagAfter.textContent = 'PPTX 渲染图 (原生可编辑图层)';
+      } else if (mode === 'after') {
+        if (currentSessionId) {
+          afterImg.src = `/api/preview/${currentSessionId}/reconstructed/${currentPageIndex}`;
+        }
+        clipWrapper.style.clipPath = 'polygon(0 0, 0 0, 0 100%, 0 100%)';
+        divider.style.display = 'none';
+        tagAfter.textContent = 'PPTX 渲染图 (原生可编辑图层)';
+      } else if (mode === 'before') {
+        clipWrapper.style.clipPath = 'polygon(0 0, 100% 0, 100% 100%, 0 100%)';
+        divider.style.display = 'none';
+      }
+    }
+
+    function toggleOverlay() {
+      isOverlayActive = !isOverlayActive;
+      btnToggleOverlay.classList.toggle('active', isOverlayActive);
+      elementsOverlay.style.display = isOverlayActive ? 'block' : 'none';
+      if (isOverlayActive) {
+        loadOverlayElements(currentPageIndex);
+      } else {
+        hideTooltip();
+      }
+    }
+
+    async function loadOverlayElements(pageIndex) {
+      elementsOverlay.innerHTML = '';
+      if (!currentSessionId) return;
+
+      if (!cachedElements[pageIndex]) {
+        try {
+          const resp = await fetch(`/api/report/${currentSessionId}/elements/${pageIndex}`);
+          if (!resp.ok) return;
+          cachedElements[pageIndex] = await resp.json();
+        } catch (err) {
+          console.error("加载图元失败", err);
+          return;
+        }
+      }
+
+      const data = cachedElements[pageIndex];
+      if (!data || !data.elements) return;
+
+      const lowConfElems = data.elements.filter(el => el.confidence < 0.60 || el.degraded);
+      for (const el of lowConfElems) {
+        const box = document.createElement('div');
+        box.className = 'elem-box';
+        box.style.left = `${el.bbox_pct.x}%`;
+        box.style.top = `${el.bbox_pct.y}%`;
+        box.style.width = `${el.bbox_pct.width}%`;
+        box.style.height = `${el.bbox_pct.height}%`;
+
+        box.addEventListener('mouseenter', (e) => showTooltip(e, el));
+        box.addEventListener('mouseleave', hideTooltip);
+        elementsOverlay.appendChild(box);
+      }
+    }
+
+    function showTooltip(e, el) {
+      const kindMap = {
+        textbox: '文本框',
+        table: '表格',
+        shape: '形状',
+        image: '图片',
+        element: '图元',
       };
+      const kindZh = kindMap[el.kind] || el.kind;
+      const statusZh = el.degraded ? '⚠️ 识别降级 (保留位图图层)' : '可编辑原生图元';
+      const scorePct = (el.confidence * 100).toFixed(1);
+
+      elemTooltip.innerHTML = `
+        <div class="elem-tooltip-title">
+          <span>${kindZh}</span>
+          <span class="elem-tooltip-score">${scorePct}% 置信</span>
+        </div>
+        <div class="elem-tooltip-status">${statusZh}</div>
+        <div style="font-size:0.7rem; color:#94a3b8;">来源: ${el.source} · ID: ${el.id}</div>
+        ${el.text ? `<div class="elem-tooltip-text">"${el.text.slice(0, 100)}"</div>` : ''}
+      `;
+      elemTooltip.style.display = 'block';
+
+      const stageRect = stage.getBoundingClientRect();
+      const x = e.clientX - stageRect.left + 14;
+      const y = e.clientY - stageRect.top + 14;
+      elemTooltip.style.left = `${Math.min(x, stageRect.width - 290)}px`;
+      elemTooltip.style.top = `${Math.min(y, stageRect.height - 110)}px`;
+    }
+
+    function hideTooltip() {
+      elemTooltip.style.display = 'none';
+    }
+
+    function switchPage(index) {
+      if (index < 0 || index >= currentPages.length) return;
+      currentPageIndex = index;
+
+      // Update thumbnails
+      const cards = thumbTrack.querySelectorAll('.thumb-card');
+      cards.forEach((c, idx) => c.classList.toggle('active', idx === index));
+
+      // Scroll thumbnail into view
+      if (cards[index]) {
+        cards[index].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+
+      // Update images
+      const afterImg = document.getElementById('afterImg');
+      const beforeImg = document.getElementById('beforeImg');
+      if (currentSessionId) {
+        beforeImg.src = `/api/preview/${currentSessionId}/original/${index}`;
+        if (currentMode === 'heatmap') {
+          afterImg.src = `/api/preview/${currentSessionId}/heatmap/${index}`;
+        } else {
+          afterImg.src = `/api/preview/${currentSessionId}/reconstructed/${index}`;
+        }
+      }
+
+      // Update page labels
+      const pageInfoText = `第 ${index + 1} / ${currentPages.length} 页`;
+      const afterPageTag = document.getElementById('afterPageTag');
+      const beforePageTag = document.getElementById('beforePageTag');
+      if (afterPageTag) afterPageTag.textContent = pageInfoText;
+      if (beforePageTag) beforePageTag.textContent = pageInfoText;
+
+      // Update SSIM stat box for current page
+      const pageData = currentPages[index];
+      if (pageData && pageData.ssim !== undefined && pageData.ssim !== null) {
+        document.getElementById('statSsim').innerHTML = `${Number(pageData.ssim).toFixed(3)} <span class="stat-sub">当前页</span>`;
+      }
+
+      // Update overlay if active
+      if (isOverlayActive) {
+        loadOverlayElements(index);
+      }
+    }
+
+    function renderThumbnailStrip() {
+      thumbTrack.innerHTML = '';
+      if (!currentPages || currentPages.length <= 1) {
+        thumbStripContainer.style.display = 'none';
+        return;
+      }
+
+      thumbStripContainer.style.display = 'block';
+      thumbCount.textContent = currentPages.length;
+
+      currentPages.forEach((p, idx) => {
+        const card = document.createElement('div');
+        card.className = `thumb-card ${idx === currentPageIndex ? 'active' : ''}`;
+        card.onclick = () => switchPage(idx);
+
+        const img = document.createElement('img');
+        img.className = 'thumb-img';
+        img.src = `/api/preview/${currentSessionId}/original/${idx}`;
+        img.alt = `第 ${idx + 1} 页`;
+        card.appendChild(img);
+
+        const pageBadge = document.createElement('span');
+        pageBadge.className = 'thumb-badge-page';
+        pageBadge.textContent = `第 ${idx + 1} 页`;
+        card.appendChild(pageBadge);
+
+        if (p.ssim !== undefined && p.ssim !== null) {
+          const ssimBadge = document.createElement('span');
+          const ssimVal = Number(p.ssim);
+          const badgeClass = ssimVal >= 0.90 ? 'badge-ssim-high' : ssimVal >= 0.80 ? 'badge-ssim-mid' : 'badge-ssim-low';
+          ssimBadge.className = `thumb-badge-ssim ${badgeClass}`;
+          ssimBadge.textContent = ssimVal.toFixed(2);
+          card.appendChild(ssimBadge);
+        }
+
+        thumbTrack.appendChild(card);
+      });
     }
 
     function displayResult(completeData) {
@@ -1289,13 +1946,27 @@
       const beforeMock = document.getElementById('beforeMock');
 
       if (afterImg && beforeImg && afterMock && beforeMock) {
-        afterImg.src = "/api/preview/" + currentSessionId + "/reconstructed/0";
-        beforeImg.src = "/api/preview/" + currentSessionId + "/original/0";
         afterImg.style.display = "block";
         beforeImg.style.display = "block";
         afterMock.style.display = "none";
         beforeMock.style.display = "none";
       }
+
+      // Initialize page list
+      if (completeData.pages && completeData.pages.length > 0) {
+        currentPages = completeData.pages;
+      } else {
+        const total = completeData.total_pages || completeData.succeeded_pages || 1;
+        currentPages = [];
+        for (let i = 0; i < total; i++) {
+          currentPages.push({ page_index: i, ssim: completeData.avg_ssim });
+        }
+      }
+
+      cachedElements = {};
+      renderThumbnailStrip();
+      switchPage(0);
+      resetTransform();
     }
 
     function downloadPptx() {
@@ -1323,6 +1994,8 @@
       }
       currentSessionId = null;
       downloadUrl = "";
+      currentPages = [];
+      cachedElements = {};
       setPanel('upload');
       document.getElementById('progressThumb').style.width = '0%';
       document.getElementById('clockTicker').textContent = '0.00s';
@@ -1330,53 +2003,38 @@
       if (fileInput) fileInput.value = '';
     }
 
-    // Interactive Precision Split Slider
-    const stage = document.getElementById('sliderStage');
-    const clipWrapper = document.getElementById('clipWrapper');
-    const divider = document.getElementById('dividerLine');
-    let isDragging = false;
-
-    function moveDivider(clientX) {
-      const rect = stage.getBoundingClientRect();
-      let ratio = (clientX - rect.left) / rect.width;
-      ratio = Math.max(0, Math.min(1, ratio));
-      const pct = (ratio * 100).toFixed(2);
-
-      clipWrapper.style.clipPath = `polygon(0 0, ${pct}% 0, ${pct}% 100%, 0 100%)`;
-      divider.style.left = `${pct}%`;
-    }
-
-    divider.addEventListener('mousedown', () => isDragging = true);
-    window.addEventListener('mouseup', () => isDragging = false);
-    window.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      moveDivider(e.clientX);
-    });
-
-    divider.addEventListener('touchstart', () => isDragging = true);
-    window.addEventListener('touchend', () => isDragging = false);
-    window.addEventListener('touchmove', (e) => {
-      if (!isDragging || !e.touches[0]) return;
-      moveDivider(e.touches[0].clientX);
-    });
-
-    // View Modes
-    function setMode(mode) {
-      document.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('active'));
-      event.target.classList.add('active');
-
-      if (mode === 'split') {
-        clipWrapper.style.clipPath = 'polygon(0 0, 50% 0, 50% 100%, 0 100%)';
-        divider.style.display = 'block';
-        divider.style.left = '50%';
-      } else if (mode === 'after') {
-        clipWrapper.style.clipPath = 'polygon(0 0, 0 0, 0 100%, 0 100%)';
-        divider.style.display = 'none';
-      } else if (mode === 'before') {
-        clipWrapper.style.clipPath = 'polygon(0 0, 100% 0, 100% 100%, 0 100%)';
-        divider.style.display = 'none';
+    // Global Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        return;
       }
-    }
+      if (document.getElementById('panel-result').style.display === 'none') {
+        return;
+      }
+
+      if (e.key === '1' || e.code === 'Space') {
+        e.preventDefault();
+        setMode('split');
+      } else if (e.key === '2') {
+        e.preventDefault();
+        setMode('after');
+      } else if (e.key === '3') {
+        e.preventDefault();
+        setMode('before');
+      } else if (e.key === '4') {
+        e.preventDefault();
+        setMode('heatmap');
+      } else if (e.key === '[' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        switchPage(currentPageIndex - 1);
+      } else if (e.key === ']' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        switchPage(currentPageIndex + 1);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        resetTransform();
+      }
+    });
 
     // Drag-over styling
     const dropArea = document.getElementById('dropArea');
