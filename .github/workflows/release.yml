@@ -61,13 +61,13 @@ jobs:
       - name: Build Standalone Binary (Unix)
         if: runner.os != 'Windows'
         run: |
-          uv run --with pyinstaller pyinstaller --noconfirm --onefile --name pptkit src/pptkit/__main__.py
+          uv run --with pyinstaller pyinstaller --noconfirm --onefile --add-data "src/pptkit/gui/static:pptkit/gui/static" --name pptkit src/pptkit/__main__.py
           tar -czvf ${{ matrix.asset_name }} -C dist pptkit
 
       - name: Build Standalone Binary (Windows)
         if: runner.os == 'Windows'
         run: |
-          uv run --with pyinstaller pyinstaller --noconfirm --onefile --name pptkit src/pptkit/__main__.py
+          uv run --with pyinstaller pyinstaller --noconfirm --onefile --add-data "src/pptkit/gui/static;pptkit/gui/static" --name pptkit src/pptkit/__main__.py
           Compress-Archive -Path dist/pptkit.exe -DestinationPath ${{ matrix.asset_name }}
 
       - name: Upload Release Asset

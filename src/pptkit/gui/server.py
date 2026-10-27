@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import queue
 import socket
+import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -404,6 +405,16 @@ class PPTKitServer(ThreadingHTTPServer):
 
     DEFAULT_STATIC_DIR: ClassVar[Path] = Path(__file__).parent / "static"
 
+    @classmethod
+    def resolve_default_static_dir(cls) -> Path:
+        """Resolve static asset directory, supporting PyInstaller onefile bundles."""
+        base = getattr(sys, "_MEIPASS", None)
+        if base:
+            meipass_static = Path(base) / "pptkit" / "gui" / "static"
+            if meipass_static.exists():
+                return meipass_static
+        return Path(__file__).parent / "static"
+
     def __init__(
         self,
         host: str = "127.0.0.1",
@@ -411,7 +422,7 @@ class PPTKitServer(ThreadingHTTPServer):
         cache_dir: Path | None = None,
         static_dir: Path | None = None,
     ) -> None:
-        self.static_dir = Path(static_dir) if static_dir else self.DEFAULT_STATIC_DIR
+        self.static_dir = Path(static_dir) if static_dir else self.resolve_default_static_dir()
         self.session_manager = SessionManager(base_dir=cache_dir)
         self.tasks: dict[str, ConversionTask] = {}
         super().__init__((host, port), PPTKitRequestHandler)
