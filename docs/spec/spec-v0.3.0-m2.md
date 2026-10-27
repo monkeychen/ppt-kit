@@ -170,9 +170,10 @@ status: approved
   - 接入 PDF 首屏切片缓存与 PPTX 附件流式下发
   - 验证证据：`uv run pytest tests/integration/test_gui_preview_download.py`（2 passed in 3.82s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): implement preview slice serving and pptx download`
-- [ ] **Task 4: 前端交互打通与状态闭环**
+- [x] **Task 4: 前端交互打通与状态闭环**
   - 在 `src/pptkit/gui/static/index.html` 中接入真实接口（上传 -> 触发转换 -> SSE 监听 -> 状态条刷新 -> 下载激活）
-  - 验证端到端交互链路无报错
+  - 同步更新原型文档 `docs/prototype/gui_prototype.html`
+  - 验证证据：全量 GUI 测试（19 passed in 9.38s），Ruff / Pyright 0 errors
   - Git Commit: `feat(gui): connect web frontend with sse progress and download`
 - [ ] **Task 5: M2 里程碑全量质量回归与验收记录**
   - 全量自动化测试回归（`pytest tests/unit tests/integration`）

@@ -877,7 +877,8 @@
 
     <!-- STATE 1: UPLOAD PANEL -->
     <div id="panel-upload" class="studio-panel">
-      <div class="drop-surface" id="dropArea" onclick="startSimulatedFlow()">
+      <input type="file" id="fileInput" accept=".pdf,.pptx,.png,.jpg,.jpeg,.webp" style="display:none;" onchange="handleFileSelect(this.files)">
+      <div class="drop-surface" id="dropArea" onclick="document.getElementById('fileInput').click()">
         <div class="icon-halo">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
         </div>
@@ -900,23 +901,22 @@
       <div class="config-tray hidden" id="configTray">
         <div class="tray-field">
           <label>解析策略 (Route)</label>
-          <select>
-            <option value="auto">自动探测 (矢量优先 $\rightarrow$ 位图降级)</option>
+          <select id="optRoute">
+            <option value="auto">自动探测 (矢量优先 → 位图降级)</option>
             <option value="vector">强制矢量直析 (零误差/秒级)</option>
             <option value="raster">强制位图多图层拆解</option>
           </select>
         </div>
         <div class="tray-field">
           <label>位图 OCR 引擎</label>
-          <select>
-            <option value="auto">系统自动调度 (macOS 原生 / CPU ONNX)</option>
-            <option value="apple_vision">Apple Vision (macOS 硬件加速)</option>
+          <select id="optOcr">
+            <option value="auto">系统自动调度 (macOS 原生 / RapidOCR)</option>
             <option value="rapidocr">RapidOCR (跨平台 CPU 推理)</option>
           </select>
         </div>
         <div class="tray-field">
           <label>页码过滤范围</label>
-          <input type="text" placeholder="例如: 1-3, 5 (留空表示转换全部)">
+          <input type="text" id="optPages" placeholder="例如: 1-3, 5 (留空表示转换全部)">
         </div>
       </div>
     </div>
@@ -976,8 +976,8 @@
     <div id="panel-result" class="studio-panel" style="display: none;">
       <div class="inspector-bar">
         <div class="target-file">
-          <div class="file-name">ai-beginner-workflow.jpg</div>
-          <span class="engine-chip">⚡️ 1.42s 本地极速重构</span>
+          <div class="file-name" id="targetFileName">ai-beginner-workflow.jpg</div>
+          <span class="engine-chip" id="engineChip">⚡️ 1.42s 本地极速重构</span>
         </div>
 
         <div class="view-segmented">
@@ -991,65 +991,71 @@
       <div class="slider-stage" id="sliderStage">
         <!-- AFTER LAYER: Clean, editable PowerPoint visual output -->
         <div class="slide-canvas after-layer" id="afterLayer">
-          <div class="slide-topline">
-            <div class="category-capsule">知识工作流架构</div>
-            <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;">第 1 / 1 页</span>
-          </div>
-          <div class="slide-hero">
-            <h1 class="slide-h1">AI 驱动的企业级知识管理体系</h1>
-            <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
-          </div>
-          <div class="cards-row">
-            <div class="pres-card">
-              <span class="card-meta-tag">原生 Shape</span>
-              <div class="pres-card-title">01 智能解析</div>
-              <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
+          <img id="afterImg" style="display:none; width:100%; height:100%; object-fit:contain; border-radius:12px; background:white;">
+          <div id="afterMock">
+            <div class="slide-topline">
+              <div class="category-capsule">知识工作流架构</div>
+              <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;">第 1 / 1 页</span>
             </div>
-            <div class="pres-card">
-              <span class="card-meta-tag">原生 Shape</span>
-              <div class="pres-card-title">02 拓扑推断</div>
-              <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
+            <div class="slide-hero">
+              <h1 class="slide-h1">AI 驱动的企业级知识管理体系</h1>
+              <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
             </div>
-            <div class="pres-card">
-              <span class="card-meta-tag">原生 Table</span>
-              <div class="pres-card-title">03 矢量合成</div>
-              <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
+            <div class="cards-row">
+              <div class="pres-card">
+                <span class="card-meta-tag">原生 Shape</span>
+                <div class="pres-card-title">01 智能解析</div>
+                <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
+              </div>
+              <div class="pres-card">
+                <span class="card-meta-tag">原生 Shape</span>
+                <div class="pres-card-title">02 拓扑推断</div>
+                <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
+              </div>
+              <div class="pres-card">
+                <span class="card-meta-tag">原生 Table</span>
+                <div class="pres-card-title">03 矢量合成</div>
+                <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
+              </div>
             </div>
-          </div>
-          <div class="slide-footer-meta">
-            <span>由 ppt-kit v0.3.0 逆向还原</span>
-            <span>100% 矢量与原生 PowerPoint 对象</span>
+            <div class="slide-footer-meta">
+              <span>由 ppt-kit v0.3.0 逆向还原</span>
+              <span>100% 矢量与原生 PowerPoint 对象</span>
+            </div>
           </div>
         </div>
 
         <!-- BEFORE LAYER: Original raster graphic, clipped by split slider -->
         <div class="clip-wrapper" id="clipWrapper">
           <div class="slide-canvas before-layer">
-            <div class="slide-topline">
-              <div class="category-capsule" style="opacity: 0.9;">知识工作流架构</div>
-              <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;">第 1 / 1 页</span>
-            </div>
-            <div class="slide-hero">
-              <h1 class="slide-h1" style="filter: contrast(0.92);">AI 驱动的企业级知识管理体系</h1>
-              <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
-            </div>
-            <div class="cards-row">
-              <div class="pres-card" style="box-shadow: none;">
-                <div class="pres-card-title">01 智能解析</div>
-                <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
+            <img id="beforeImg" style="display:none; width:100%; height:100%; object-fit:contain; border-radius:12px; background:white;">
+            <div id="beforeMock">
+              <div class="slide-topline">
+                <div class="category-capsule" style="opacity: 0.9;">知识工作流架构</div>
+                <span style="font-size: 0.8rem; font-family: var(--font-mono); color: #64748b;">第 1 / 1 页</span>
               </div>
-              <div class="pres-card" style="box-shadow: none;">
-                <div class="pres-card-title">02 拓扑推断</div>
-                <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
+              <div class="slide-hero">
+                <h1 class="slide-h1" style="filter: contrast(0.92);">AI 驱动的企业级知识管理体系</h1>
+                <p class="slide-sub">从非结构化像素到 PowerPoint 原生可编辑幻灯片的全自动逆向重构管线。</p>
               </div>
-              <div class="pres-card" style="box-shadow: none;">
-                <div class="pres-card-title">03 矢量合成</div>
-                <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
+              <div class="cards-row">
+                <div class="pres-card" style="box-shadow: none;">
+                  <div class="pres-card-title">01 智能解析</div>
+                  <div class="pres-card-body">直接从 OpenXML 媒体流无损直取原始高清资产，秒级分流。</div>
+                </div>
+                <div class="pres-card" style="box-shadow: none;">
+                  <div class="pres-card-title">02 拓扑推断</div>
+                  <div class="pres-card-body">边缘梯度开运算分离实心表头与细网格线，杜绝列折叠。</div>
+                </div>
+                <div class="pres-card" style="box-shadow: none;">
+                  <div class="pres-card-title">03 矢量合成</div>
+                  <div class="pres-card-body">DrawingML 单元格边距清零与原生矢量边框注入，所见即所得。</div>
+                </div>
               </div>
-            </div>
-            <div class="slide-footer-meta">
-              <span>原始不可编辑位图</span>
-              <span>平面栅格位图</span>
+              <div class="slide-footer-meta">
+                <span>原始不可编辑位图</span>
+                <span>平面栅格位图</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1069,19 +1075,19 @@
       <div class="metrics-row">
         <div class="stat-box">
           <div class="stat-label">SSIM 结构保真度</div>
-          <div class="stat-value highlight">0.984 <span class="stat-sub">极高还原度</span></div>
+          <div class="stat-value highlight" id="statSsim">0.984 <span class="stat-sub">极高还原度</span></div>
         </div>
         <div class="stat-box">
           <div class="stat-label">可编辑文本段</div>
-          <div class="stat-value">24 <span class="stat-sub">100% 召回</span></div>
+          <div class="stat-value" id="statTexts">24 <span class="stat-sub">100% 召回</span></div>
         </div>
         <div class="stat-box">
           <div class="stat-label">原生 PPT 形状</div>
-          <div class="stat-value">3 <span class="stat-sub">个容器</span></div>
+          <div class="stat-value" id="statShapes">3 <span class="stat-sub">个容器</span></div>
         </div>
         <div class="stat-box">
           <div class="stat-label">本地重构耗时</div>
-          <div class="stat-value">1.42s <span class="stat-sub">Apple Vision</span></div>
+          <div class="stat-value" id="statElapsed">1.42s <span class="stat-sub">完成</span></div>
         </div>
       </div>
 
@@ -1092,11 +1098,11 @@
           <span>转换另一个文件</span>
         </button>
         <div style="display: flex; gap: 12px;">
-          <button class="btn-action btn-ghost" onclick="alert('已在系统访达/资源管理器中定位到: out/ai-beginner-workflow.pptx')">
-            <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span>在文件夹中查看</span>
+          <button class="btn-action btn-ghost" id="btnReport" onclick="downloadReport()">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>下载质量报告</span>
           </button>
-          <button class="btn-action btn-solid" onclick="alert('正在下载可编辑文件: ai-beginner-workflow.pptx')">
+          <button class="btn-action btn-solid" id="btnDownload" onclick="downloadPptx()">
             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             <span>下载原生可编辑 PPTX</span>
           </button>
@@ -1149,32 +1155,179 @@
       chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
-    // Simulated Execution Flow
-    function startSimulatedFlow() {
-      setPanel('processing');
-      let progress = 10;
-      let time = 0.1;
-      const thumb = document.getElementById('progressThumb');
-      const clock = document.getElementById('clockTicker');
+    let currentSessionId = null;
+    let currentFilename = "";
+    let downloadUrl = "";
+    let eventSource = null;
+    let conversionStartTime = 0;
+    let timerInterval = null;
 
-      const interval = setInterval(() => {
-        progress += 18;
-        time += 0.25;
-        clock.textContent = time.toFixed(2) + 's';
-        if (progress >= 100) {
-          thumb.style.width = '100%';
-          clearInterval(interval);
-          setTimeout(() => setPanel('result'), 400);
-        } else {
-          thumb.style.width = progress + '%';
+    async function handleFileSelect(files) {
+      if (!files || files.length === 0) return;
+      const file = files[0];
+      await uploadAndConvert(file);
+    }
+
+    async function uploadAndConvert(file) {
+      currentFilename = file.name;
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        setPanel('processing');
+        document.getElementById('clockTicker').textContent = '0.00s';
+        document.getElementById('progressThumb').style.width = '10%';
+        conversionStartTime = Date.now();
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          const sec = ((Date.now() - conversionStartTime) / 1000).toFixed(2);
+          document.getElementById('clockTicker').textContent = sec + 's';
+        }, 100);
+
+        const resp = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.message || "上传预检失败");
         }
-      }, 250);
+
+        const session = await resp.json();
+        currentSessionId = session.session_id;
+
+        // Collect options
+        const route = document.getElementById("optRoute") ? document.getElementById("optRoute").value : "auto";
+        const ocr_engine = document.getElementById("optOcr") ? document.getElementById("optOcr").value : "auto";
+        const pages_spec = document.getElementById("optPages") ? document.getElementById("optPages").value.trim() : "";
+
+        const convertPayload = {
+          route: route,
+          ocr_engine: ocr_engine,
+          max_iter: 1,
+        };
+        if (pages_spec) {
+          convertPayload.pages_spec = pages_spec;
+        }
+
+        const convertResp = await fetch("/api/convert/" + currentSessionId, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(convertPayload),
+        });
+
+        if (!convertResp.ok) {
+          throw new Error("启动转换失败");
+        }
+
+        listenToEvents(currentSessionId, session.page_count);
+
+      } catch (err) {
+        if (timerInterval) clearInterval(timerInterval);
+        alert("转换出错: " + err.message);
+        resetToUpload();
+      }
+    }
+
+    function listenToEvents(sessionId, totalPages) {
+      if (eventSource) {
+        eventSource.close();
+      }
+
+      eventSource = new EventSource("/api/events/" + sessionId);
+
+      eventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === "start") {
+            document.getElementById('progressThumb').style.width = '20%';
+          } else if (data.type === "page") {
+            const pages = totalPages || 1;
+            const pct = Math.min(92, Math.round(((data.page_index + 1) / pages) * 80) + 12);
+            document.getElementById('progressThumb').style.width = pct + '%';
+          } else if (data.type === "complete") {
+            if (timerInterval) clearInterval(timerInterval);
+            document.getElementById('progressThumb').style.width = '100%';
+            downloadUrl = data.download_url || ("/api/download/" + sessionId);
+
+            setTimeout(() => {
+              displayResult(data);
+            }, 300);
+
+            eventSource.close();
+          } else if (data.type === "error") {
+            if (timerInterval) clearInterval(timerInterval);
+            eventSource.close();
+            alert("转换失败: " + (data.message || "未知错误"));
+            resetToUpload();
+          }
+        } catch (err) {
+          console.error("SSE parse error", err);
+        }
+      };
+
+      eventSource.onerror = () => {
+        // Handled gracefully
+      };
+    }
+
+    function displayResult(completeData) {
+      setPanel('result');
+      document.getElementById('targetFileName').textContent = currentFilename;
+      const elapsed = ((Date.now() - conversionStartTime) / 1000).toFixed(2);
+      document.getElementById('engineChip').textContent = '⚡️ ' + elapsed + 's 本地重构完成';
+
+      if (completeData.avg_ssim !== undefined && completeData.avg_ssim !== null) {
+        document.getElementById('statSsim').innerHTML = Number(completeData.avg_ssim).toFixed(3) + ' <span class="stat-sub">保真度</span>';
+      }
+      document.getElementById('statElapsed').innerHTML = elapsed + 's <span class="stat-sub">完成</span>';
+
+      const afterImg = document.getElementById('afterImg');
+      const beforeImg = document.getElementById('beforeImg');
+      const afterMock = document.getElementById('afterMock');
+      const beforeMock = document.getElementById('beforeMock');
+
+      if (afterImg && beforeImg && afterMock && beforeMock) {
+        afterImg.src = "/api/preview/" + currentSessionId + "/reconstructed/0";
+        beforeImg.src = "/api/preview/" + currentSessionId + "/original/0";
+        afterImg.style.display = "block";
+        beforeImg.style.display = "block";
+        afterMock.style.display = "none";
+        beforeMock.style.display = "none";
+      }
+    }
+
+    function downloadPptx() {
+      if (downloadUrl) {
+        window.location.href = downloadUrl;
+      } else if (currentSessionId) {
+        window.location.href = "/api/download/" + currentSessionId;
+      }
+    }
+
+    function downloadReport() {
+      if (currentSessionId) {
+        window.location.href = "/api/report/" + currentSessionId;
+      }
     }
 
     function resetToUpload() {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      currentSessionId = null;
+      downloadUrl = "";
       setPanel('upload');
-      document.getElementById('progressThumb').style.width = '68%';
-      document.getElementById('clockTicker').textContent = '0.84s';
+      document.getElementById('progressThumb').style.width = '0%';
+      document.getElementById('clockTicker').textContent = '0.00s';
+      const fileInput = document.getElementById('fileInput');
+      if (fileInput) fileInput.value = '';
     }
 
     // Interactive Precision Split Slider
@@ -1235,7 +1388,9 @@
     dropArea.addEventListener('drop', (e) => {
       e.preventDefault();
       dropArea.classList.remove('dragover');
-      startSimulatedFlow();
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files);
+      }
     });
   </script>
 </body>
