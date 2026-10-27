@@ -461,7 +461,10 @@ def find_available_port(
     for port in range(start_port, start_port + max_tries):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                if sys.platform != "win32":
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                elif hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
                 s.bind((host, port))
                 return port
         except OSError:

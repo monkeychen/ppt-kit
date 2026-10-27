@@ -1,4 +1,6 @@
+import re
 import socket
+import sys
 
 import pytest
 from typer.testing import CliRunner
@@ -16,7 +18,10 @@ def test_find_available_port_direct() -> None:
 def test_find_available_port_increments_when_busy() -> None:
     # Occupy port 18901
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if sys.platform != "win32":
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    elif hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
     s.bind(("127.0.0.1", 18901))
     s.listen(1)
 
@@ -35,7 +40,10 @@ def test_find_available_port_exhaustion_raises() -> None:
     try:
         for i in range(max_tries):
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if sys.platform != "win32":
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            elif hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
             s.bind(("127.0.0.1", base_port + i))
             s.listen(1)
             sockets.append(s)
@@ -49,8 +57,9 @@ def test_find_available_port_exhaustion_raises() -> None:
 
 def test_cli_gui_help() -> None:
     runner = CliRunner()
-    result = runner.invoke(app, ["gui", "--help"])
+    result = runner.invoke(app, ["gui", "--help"], color=False)
     assert result.exit_code == 0
-    assert "--port" in result.output
-    assert "--host" in result.output
-    assert "--no-browser" in result.output
+    clean_output = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "--port" in clean_output
+    assert "--host" in clean_output
+    assert "--no-browser" in clean_output

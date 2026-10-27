@@ -2,6 +2,12 @@
 
 > 倒序追加，新的在上。格式见 ~/.gemini/dev-workflow.md。
 
+## 2026-10-27 | 跨平台 CI 回归：Windows Sockets 端口复用差异、Typer/Rich 终端 ANSI 序列与弱算力 Runner 超时
+- 现象：v0.3.0 在 GitHub Actions 多系统矩阵 CI 运行时，三端均出现失败：1）Windows 上 `test_find_available_port_increments_when_busy` 与 `test_find_available_port_exhaustion_raises` 失败，端口已被占用却能重复 bind；2）三平台上 `test_cli_gui_help` 断言 `assert "--port" in result.output` 失败；3）macOS CI 虚拟化节点上 `test_task_runner_dispatches_events` 超时，`task.status == "running"` 未达到 `"completed"`。
+- 原因：1）Winsock 对 `SO_REUSEADDR` 的语义与 POSIX 截然相反，在 Windows 上显式设置 `SO_REUSEADDR` 允许其它套接字强制复用已被监听的端口，必须使用 Windows 专属的 `SO_EXCLUSIVEADDRUSE`；2）Rich 终端着色器在 CI 环境下将 `--` 与 `port` 切开并插入 ANSI 颜色转义序列（`\x1b[1m--\x1b[0m\x1b[36mport\x1b[0m`），导致单纯的连续子串匹配失效；3）GitHub Actions 的 macOS 虚拟机 CPU 算力受限且队列拥堵，冷启动多图层 OCR 推理超过了原本写死的 15.0 秒超时门限。
+- 解决：1）在 `find_available_port` 及对应单元测试中，区分系统平台：非 Windows 平台使用 `SO_REUSEADDR`，Windows 平台使用 `SO_EXCLUSIVEADDRUSE` 杜绝端口盗用；2）CLI Help 测试增加 `color=False` 并通过正则彻底滤除 ANSI 序列；3）将 CI 异步任务的等待上限 `timeout` 由 15.0s 放宽至 60.0s（任务完成立即 return，不增加正常耗时）。
+- 适用范围：多操作系统 CI 矩阵（Linux/macOS/Windows）、网络端口分配及终端 CLI 文本断言。
+
 ## 2026-10-26 | 跨平台单元测试：非 macOS 运行环境无 CJK 字体、几何色块误报为口字与复检清洗闭环
 - 现象：v0.2.0 CI 在 `ubuntu-latest` 和 `windows-latest` 运行时，3 个单元测试用例失败：1）`test_inpaint.py` 中直接硬编码了 `AppleVisionOCRAdapter`；2）`test_text_style.py` 硬编码了 macOS 独有的 `/System/Library/Fonts/STHeiti Medium.ttc` 路径，CI 容器回退到默认点阵字体后无法渲染中文字符，导致颜色提取算法只采样到背景底色；3）背景抹除复检中，纯色非文字几何色块被 RapidOCR 误报为 `"口"` 字。
 - 原因：1）早期测试用例编写在跨平台抽象前，遗留了单一平台实现直接绑定；2）云端精简 Linux/Windows CI runner 未预装 CJK 矢量字体，FreeType 无法绘制中文字形；3）高对比度矩形几何块容易在通用 OCR 检测模型中产生类似于方形单字符（如 `"口"`, `"□"`）的假阳性，且复检未启用 pipeline 标准清洗规则。

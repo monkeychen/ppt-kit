@@ -49,7 +49,7 @@ def test_task_runner_dispatches_events(tmp_path: Path) -> None:
 
     history, q = task.subscribe()
     task.start()
-    task.wait(timeout=15.0)
+    task.wait(timeout=60.0)
 
     assert task.status == "completed"
     assert task.output_pptx_path is not None
