@@ -160,3 +160,23 @@ class PPTKitServer(ThreadingHTTPServer):
     def bound_port(self) -> int:
         """Actual bound port, useful when port 0 is given for dynamic binding."""
         return int(self.server_address[1])
+
+
+def find_available_port(
+    host: str = "127.0.0.1", start_port: int = 8765, max_tries: int = 10
+) -> int:
+    """Find the first available port starting from start_port up to start_port + max_tries."""
+    import socket
+
+    for port in range(start_port, start_port + max_tries):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind((host, port))
+                return port
+        except OSError:
+            continue
+
+    raise RuntimeError(
+        f"No available port found on {host} in range [{start_port}, {start_port + max_tries - 1}]."
+    )

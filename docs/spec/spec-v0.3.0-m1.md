@@ -146,10 +146,11 @@ sequenceDiagram
   - 支持 `/api/health`、`/api/upload` 及静态页面伺服
   - 验证证据：`uv run pytest tests/integration/test_gui_server.py`（3 passed in 1.74s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(gui): implement embedded ThreadingHTTPServer and static asset serving`
-- [ ] **Task 4: CLI `pptkit gui` 命令注册与自启浏览器 (Red-Green-Refactor)**
+- [x] **Task 4: CLI `pptkit gui` 命令注册与自启浏览器 (Red-Green-Refactor)**
   - 编写 `tests/unit/gui/test_cli_gui.py`（红）
   - 在 `src/pptkit/cli/app.py` 中注册 `gui` 命令（绿）
   - 端口防冲突自动递增、浏览器自动拉起与平滑退出支持
+  - 验证证据：`uv run pytest tests/unit/gui/test_cli_gui.py`（4 passed in 0.38s），Pyright 0 errors, Ruff clean
   - Git Commit: `feat(cli): add pptkit gui command with browser auto-launch`
 - [ ] **Task 5: M1 里程碑质量校验与验收记录**
   - 全量自动化测试回归（`pytest tests/unit tests/integration`）

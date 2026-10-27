@@ -363,3 +363,51 @@ def report_cmd(
         sys.stdout.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     else:
         typer.echo(f"共筛出 {len(pages)} 页：{[p.page_index + 1 for p in pages]}")
+
+
+@app.command("gui")
+def gui_cmd(
+    port: Annotated[
+        int,
+        typer.Option("--port", "-p", help="Port to bind local GUI server to"),
+    ] = 8765,
+    host: Annotated[
+        str,
+        typer.Option("--host", "-h", help="Host interface to bind to"),
+    ] = "127.0.0.1",
+    no_browser: Annotated[
+        bool,
+        typer.Option("--no-browser", help="Do not open browser automatically on startup"),
+    ] = False,
+) -> None:
+    """Start local Web GUI conversion workstation."""
+    import webbrowser
+
+    from pptkit.gui.server import PPTKitServer, find_available_port
+
+    try:
+        actual_port = find_available_port(host=host, start_port=port, max_tries=10)
+    except Exception as e:
+        typer.echo(f"错误：端口分配失败：{e}", err=True)
+        raise typer.Exit(code=1) from e
+
+    if actual_port != port:
+        typer.echo(f"提示：端口 {port} 已被占用，自动切换至端口 {actual_port}")
+
+    url = f"http://{host}:{actual_port}"
+    server = PPTKitServer(host=host, port=actual_port)
+
+    typer.echo("✦ ppt-kit GUI 正在运行")
+    typer.echo(f"  地址: {url}")
+    typer.echo("  按 Ctrl+C 停止服务\n")
+
+    if not no_browser:
+        webbrowser.open(url)
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        typer.echo("\n服务已停止。")
+    finally:
+        server.shutdown()
+        server.server_close()
