@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-27
+
+### Added
+- **Local Web GUI Conversion Workstation (`pptkit gui`)**:
+  - Embedded zero-dependency HTTP server with automatic port discovery and collision avoidance.
+  - Zero cloud calls, 100% offline local processing in `127.0.0.1` loopback interface.
+- **Drag-and-Drop Ingestion with Live Preflight**:
+  - Support for `.pdf`, `.pptx`, `.png`, `.jpg`, `.jpeg`, and `.webp` slides.
+  - Advanced configuration drawer for route strategy (`auto`, `vector`, `raster`) and OCR engine (`auto`, `rapidocr`).
+- **Real-Time Streaming Pipeline Status via SSE**:
+  - SSE endpoint (`/api/events/{session_id}`) delivering per-page latency, route, status, and SSIM quality scores.
+- **Interactive Split Slider Visual Comparator**:
+  - Dual-layer Before/After slide canvas with draggable divider line.
+  - Visual mode toggles: split slider, PowerPoint layer only, original slide only, and pixel-difference heatmap.
+- **Multi-Page Slide Thumbnail Navigation**:
+  - Horizontal thumbnail strip with individual page previews and color-coded SSIM quality badges.
+- **Confidence Overlay & Heatmap Layer**:
+  - Interactive bounding box overlay for low-confidence (<0.60) or degraded elements with hover popover inspection.
+  - Pixel difference heatmap mode visualizing error distributions.
+- **Pan-Zoom Canvas & Global Keyboard Shortcuts**:
+  - Smooth wheel zoom (50%-400%) centered on cursor, canvas panning, and double-click reset.
+  - Workstation shortcuts: `1` (split), `2` (PPTX), `3` (original), `4` (heatmap), `[`/`]` (prev/next slide), `0` (reset zoom).
+- **Direct Deliverable Downloads**:
+  - Single-click download for reconstructed editable `.pptx` and comprehensive JSON quality reports.
+
+### Changed
+- **Zero Third-Party Dependency Overhead**:
+  - All web assets (HTML/CSS/JS/SVG) bundled directly into Python source without external npm/CDN dependencies, keeping PyInstaller single-file binary sizes unaffected.
+- **Keynote Studio Aesthetics**:
+  - Neutral warm gray workstation default palette with theme toggle support and pure Chinese UI localization.
+
 ## [0.2.1] - 2026-10-26
 
 ### Fixed
