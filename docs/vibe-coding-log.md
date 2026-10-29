@@ -2,6 +2,13 @@
 
 > 倒序追加，新的在上。格式见 ~/.gemini/dev-workflow.md。
 
+## 2026-10-29 | 空间拓扑逆向与架构守卫：全局单位魔法数字防御、宽卡片几何防误判与单字噪点抑制
+- 现象：1）开发 M1 底层清洗与卡片语义流式成组时，全量单元测试 `test_no_unit_constants_outside_units_module` 失败：`raster/pipeline.py contains 12700`；2）多边形轮廓在边缘带局部端点突起时，长条形矩形卡片被几何分类器误分类为 `right_arrow`；3）图标内残影单字（如 `¢`, `口`）被 OCR 误生成浮动文本框。
+- 原因：1）为计算段后距临时使用了 `gap_emu / 12700.0`，违背了项目 GEMINI.md 中「单位换算函数唯一收敛于 `pptkit/common/units.py`」的核心原则；2）简化箭头分类器只检测局部峰值，未针对高填充率（`fill_ratio > 0.80`）的大矩形卡片设置互斥防御；3）高对比度矢量图标局部特征与文字笔画在局部卷积感受野中呈现相似特征。
+- 解决：1）必须统一从 `pptkit.common.units` 导入 `emu_to_pt` 进行换算，严禁任何业务代码硬编码 `12700` 或 `914400`；2）在 `_is_right_arrow` 和 `classify_contour_shape` 中建立严格长宽比与填充率防误判门限（`aspect_ratio >= 1.8` 且 `fill_ratio >= 0.80` 坚决排除箭头）；3）在 `suppress_icon_pseudo_characters` 中对与图标区域重叠且字符长度为 1 的噪点进行彻底剥离，同时保护 `>= 22pt` 的合法标号。
+- 适用范围：多图层几何分类、OCR 噪点过滤及全局单位规约守护。
+
+
 ## 2026-10-27 | 跨平台 CI 回归：Windows Sockets 端口复用差异、Typer/Rich 终端 ANSI 序列与弱算力 Runner 超时
 - 现象：v0.3.0 在 GitHub Actions 多系统矩阵 CI 运行时，三端均出现失败：1）Windows 上 `test_find_available_port_increments_when_busy` 与 `test_find_available_port_exhaustion_raises` 失败，端口已被占用却能重复 bind；2）三平台上 `test_cli_gui_help` 断言 `assert "--port" in result.output` 失败；3）macOS CI 虚拟化节点上 `test_task_runner_dispatches_events` 超时，`task.status == "running"` 未达到 `"completed"`。
 - 原因：1）Winsock 对 `SO_REUSEADDR` 的语义与 POSIX 截然相反，在 Windows 上显式设置 `SO_REUSEADDR` 允许其它套接字强制复用已被监听的端口，必须使用 Windows 专属的 `SO_EXCLUSIVEADDRUSE`；2）Rich 终端着色器在 CI 环境下将 `--` 与 `port` 切开并插入 ANSI 颜色转义序列（`\x1b[1m--\x1b[0m\x1b[36mport\x1b[0m`），导致单纯的连续子串匹配失效；3）GitHub Actions 的 macOS 虚拟机 CPU 算力受限且队列拥堵，冷启动多图层 OCR 推理超过了原本写死的 15.0 秒超时门限。

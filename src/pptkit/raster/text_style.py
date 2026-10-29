@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 from PIL import Image
 
@@ -265,3 +267,21 @@ def estimate_text_runs(
         )
         for seg_text, seg_hex in runs_raw
     ]
+
+
+_LEADING_PUNCT_RE = re.compile(r"^[|•■▪·]\s*")
+_METRIC_COMMA_RE = re.compile(r"([\u4e00-\u9fa5\w]+)[，,](\d+\+?[项篇份册条次万])")
+
+
+def clean_title_punctuation(text: str) -> str:
+    """Clean isolated decorative punctuation from heading texts (F30)."""
+    cleaned = _LEADING_PUNCT_RE.sub("", text).strip()
+
+    # Fix metric comma typos like "专利，250+项" -> "专利250+项"
+    cleaned = _METRIC_COMMA_RE.sub(r"\1\2", cleaned)
+
+    # For short titles/names (not full sentences), strip trailing isolated dot/period
+    if len(cleaned) < 25 and cleaned.endswith("。"):
+        cleaned = cleaned[:-1].strip()
+
+    return cleaned

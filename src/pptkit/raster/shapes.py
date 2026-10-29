@@ -2,6 +2,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Literal
 
+import cv2
 import numpy as np
 from PIL import Image
 from scipy.ndimage import (
@@ -94,6 +95,10 @@ def _is_right_arrow(comp_mask: np.ndarray, short_side: int) -> bool:
     min_h = scale_px(16, short_side, min_val=8)
     if w < h * 1.15 or w < min_w or h < min_h:
         return False
+    # Card defense: solid wide container has fill ratio > 0.80, arrows have shaft/notches
+    fill_ratio = float(np.sum(comp_mask)) / float(max(w * h, 1))
+    if fill_ratio >= 0.80 and (w / max(h, 1)) >= 1.8:
+        return False
     col_heights = np.sum(comp_mask, axis=0).astype(np.float32)
     left_span = col_heights[int(w * 0.08) : int(w * 0.45)]
     if len(left_span) < 3:
@@ -178,6 +183,45 @@ def _classify_solid_geometry(
         return "round_rect", round(radius_ratio, 3), 0.90
 
     return None, 0.0, 0.45
+
+
+def classify_contour_shape(contour: np.ndarray, w: int, h: int) -> str:
+    """Classify geometric contour with aspect-ratio guard for card containers (F29)."""
+    if w <= 0 or h <= 0:
+        _, _, w_b, h_b = cv2.boundingRect(contour)
+        w = max(1, w or w_b)
+        h = max(1, h or h_b)
+
+    mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.drawContours(mask, [contour], -1, 1, thickness=-1)
+    comp_mask = mask > 0
+
+    area = float(cv2.contourArea(contour))
+    aspect_ratio = float(w) / float(max(h, 1))
+    fill_ratio = area / float(max(w * h, 1))
+
+    # AC29.1, AC29.2: Horizontal card defense against right arrow
+    is_card_guard = (aspect_ratio >= 1.8 or w >= 250) and fill_ratio >= 0.80
+
+    kind, radius_ratio, conf = _classify_solid_geometry(comp_mask)
+    if is_card_guard and kind == "right_arrow":
+        kind = None
+
+    if kind is not None:
+        return kind
+
+    if is_card_guard:
+        cw = max(3, min(w, h) // 4)
+        corners = [
+            comp_mask[:cw, :cw],
+            comp_mask[:cw, -cw:],
+            comp_mask[-cw:, :cw],
+            comp_mask[-cw:, -cw:],
+        ]
+        mean_empty = float(np.mean([np.sum(~c) for c in corners]))
+        return "round_rect" if mean_empty > 4.0 else "rect"
+
+    return "rect"
 
 
 def _extract_embedded_crops_from_canvas(

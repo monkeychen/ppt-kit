@@ -326,7 +326,116 @@ def extract_image_layers(
             )
         )
 
+    images = filter_and_cluster_image_elements(images)
+
     return LayerExtractionResult(
         images=images,
         final_bg_image=Image.fromarray(np.clip(final_bg, 0, 255).astype(np.uint8)),
     )
+
+
+def filter_and_cluster_image_elements(
+    images: list[ImageElement],
+    min_side_px: int = 20,
+    min_area_px: int = 400,
+    cluster_gap_px: int = 12,
+) -> list[ImageElement]:
+    """Filter out noise micro-images and cluster adjacent fragmented illustration parts (F32)."""
+    if not images:
+        return []
+
+    emu_per_px = 9525
+    cluster_gap_emu = cluster_gap_px * emu_per_px
+
+    # 1. Filter out micro-debris
+    valid_images: list[ImageElement] = []
+    for img in images:
+        w_px = img.bbox.width / float(emu_per_px)
+        h_px = img.bbox.height / float(emu_per_px)
+        area_px = w_px * h_px
+        if (w_px < min_side_px and h_px < min_side_px) or area_px < min_area_px:
+            continue
+        valid_images.append(img)
+
+    if len(valid_images) <= 1:
+        return valid_images
+
+    # 2. Transitive clustering via Union-Find
+    n = len(valid_images)
+    parent = list(range(n))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i: int, j: int) -> None:
+        root_i = find(i)
+        root_j = find(j)
+        if root_i != root_j:
+            parent[root_i] = root_j
+
+    for i in range(n):
+        bi = valid_images[i].bbox
+        for j in range(i + 1, n):
+            bj = valid_images[j].bbox
+            gap_x = max(0, max(bi.x, bj.x) - min(bi.x + bi.width, bj.x + bj.width))
+            gap_y = max(0, max(bi.y, bj.y) - min(bi.y + bi.height, bj.y + bj.height))
+            if gap_x <= cluster_gap_emu and gap_y <= cluster_gap_emu:
+                union(i, j)
+
+    groups: dict[int, list[ImageElement]] = {}
+    for i in range(n):
+        root = find(i)
+        groups.setdefault(root, []).append(valid_images[i])
+
+    clustered: list[ImageElement] = []
+    for group in groups.values():
+        if len(group) == 1:
+            clustered.append(group[0])
+            continue
+
+        min_x = min(img.bbox.x for img in group)
+        min_y = min(img.bbox.y for img in group)
+        max_r = max(img.bbox.x + img.bbox.width for img in group)
+        max_b = max(img.bbox.y + img.bbox.height for img in group)
+        union_bbox = BBox(x=min_x, y=min_y, width=max_r - min_x, height=max_b - min_y)
+
+        # Composite images if files exist
+        all_exist = all(Path(img.image_path).exists() for img in group)
+        clustered_path = group[0].image_path
+        if all_exist:
+            try:
+                tot_w_px = max(1, round((max_r - min_x) / float(emu_per_px)))
+                tot_h_px = max(1, round((max_b - min_y) / float(emu_per_px)))
+                comp_im = Image.new("RGBA", (tot_w_px, tot_h_px), (0, 0, 0, 0))
+                for img in sorted(group, key=lambda x: x.z_order):
+                    sub_im = Image.open(img.image_path).convert("RGBA")
+                    sub_w_px = max(1, round(img.bbox.width / float(emu_per_px)))
+                    sub_h_px = max(1, round(img.bbox.height / float(emu_per_px)))
+                    if sub_im.size != (sub_w_px, sub_h_px):
+                        sub_im = sub_im.resize((sub_w_px, sub_h_px), Image.Resampling.LANCZOS)
+                    off_x = max(0, round((img.bbox.x - min_x) / float(emu_per_px)))
+                    off_y = max(0, round((img.bbox.y - min_y) / float(emu_per_px)))
+                    comp_im.paste(sub_im, (off_x, off_y), sub_im)
+
+                out_file = Path(group[0].image_path).parent / f"cluster_{group[0].id}.png"
+                comp_im.save(out_file)
+                clustered_path = str(out_file)
+            except Exception:
+                clustered_path = group[0].image_path
+
+        clustered.append(
+            ImageElement(
+                id=group[0].id,
+                bbox=union_bbox,
+                z_order=min(img.z_order for img in group),
+                confidence=max(img.confidence for img in group),
+                source=group[0].source,
+                degraded=any(img.degraded for img in group),
+                image_path=clustered_path,
+            )
+        )
+
+    return clustered
