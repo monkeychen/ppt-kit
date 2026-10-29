@@ -119,6 +119,6 @@ def quantize_presentation_typography(
 | Task 编号 | 任务内容 | 覆盖 AC | 依赖 | 状态 |
 |---|---|---|---|---|
 | T1 | 字号阶梯量化与调色板收敛器（`quantize.py`） | AC34.1, AC34.2 | 无 | ✅ Done（`test_quantize.py` 3/3 passed） |
-| T2 | 双母版底图聚类与跨页公共固定元素提取（`master.py`） | AC33.1, AC33.2 | 无 | Pending |
+| T2 | 双母版底图聚类与跨页公共固定元素提取（`master.py`） | AC33.1, AC33.2 | 无 | ✅ Done（`test_master.py` 2/2 passed） |
 | T3 | PPTX Writer 母版共享注入与瘦身机制 | AC33.3 | T1, T2 | Pending |
 | T4 | 端到端 10 页 PPT 基准测试与验证 | AC33.1~AC34.2 | T3 | Pending |

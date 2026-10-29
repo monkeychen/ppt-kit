@@ -115,6 +115,13 @@ class Background(BaseModel):
     image_path: str | None = None
 
 
+class SlideMaster(BaseModel):
+    id: str
+    kind: Literal["title", "content"] = "content"
+    background: Background = Field(default_factory=Background)
+    static_elements: list[SlideElement] = Field(default_factory=list)
+
+
 class SlideIR(BaseModel):
     page_index: StrictInt = Field(ge=0)
     route: Literal["vector", "raster"]
@@ -122,12 +129,14 @@ class SlideIR(BaseModel):
     height_emu: StrictInt = DEFAULT_SLIDE_HEIGHT_EMU
     background: Background = Field(default_factory=Background)
     elements: list[SlideElement] = Field(default_factory=list)
+    master_id: str | None = None
 
 
 class PresentationIR(BaseModel):
     source_path: str
     width_emu: StrictInt = DEFAULT_SLIDE_WIDTH_EMU
     height_emu: StrictInt = DEFAULT_SLIDE_HEIGHT_EMU
+    masters: list[SlideMaster] = Field(default_factory=list)
     slides: list[SlideIR] = Field(default_factory=list)
 
     def to_json(self) -> str:
