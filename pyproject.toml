@@ -1,6 +1,6 @@
 [project]
 name = "pptkit"
-version = "0.3.0"
+version = "0.3.1"
 description = "Convert slide images and PDFs into editable PPTX presentations"
 readme = "README.md"
 license = { text = "MIT" }
