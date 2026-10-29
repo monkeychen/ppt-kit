@@ -219,3 +219,25 @@ def test_cli_ocr_engine_option_and_dispatch(tmp_path: Path) -> None:
     assert (out_dir / "slide_rapid.pptx").exists()
     assert (out_dir / "slide_rapid.report.json").exists()
     assert "ocr=rapidocr" in res.stderr
+
+
+def test_cli_version_flag() -> None:
+    res = runner.invoke(app, ["--version"])
+    assert res.exit_code == 0
+    assert "pptkit v" in res.stdout
+
+    res_short = runner.invoke(app, ["-V"])
+    assert res_short.exit_code == 0
+    assert "pptkit v" in res_short.stdout
+
+
+def test_cli_root_help_has_command_descriptions() -> None:
+    res = runner.invoke(app, ["--help"])
+    assert res.exit_code == 0
+    assert "convert" in res.stdout
+    assert "report" in res.stdout
+    assert "gui" in res.stdout
+    # Commands table should describe all commands
+    assert "Convert slide images" in res.stdout
+    assert "Inspect quality metrics" in res.stdout
+    assert "Start local Web GUI" in res.stdout

@@ -23,14 +23,33 @@ from pptkit.writer.pptx_writer import write_pptx
 
 app = typer.Typer(
     name="pptkit",
-    help="Convert slide images and PDFs into editable PPTX presentations.",
+    help="Convert slide images, PDFs, and picture presentations into editable PPTX.",
     no_args_is_help=True,
 )
 
 
+def version_callback(value: bool) -> None:
+    if value:
+        from pptkit import __version__
+
+        typer.echo(f"pptkit v{__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
-def _main_callback() -> None:
-    """ppt-kit CLI root."""
+def _main_callback(
+    version: Annotated[
+        bool | None,
+        typer.Option(
+            "--version",
+            "-V",
+            callback=version_callback,
+            is_eager=True,
+            help="Show the version and exit.",
+        ),
+    ] = None,
+) -> None:
+    """ppt-kit: Convert slide images, PDFs, and picture presentations into editable PPTX."""
 
 
 def _parse_pages_spec(pages_spec: str | None, total_pages: int) -> set[int]:
@@ -235,36 +254,72 @@ def _convert_single_file(
 
 @app.command("convert")
 def convert_cmd(
-    input_path: Annotated[Path, typer.Argument(help="Input slide file or directory")],
-    output_dir: Annotated[Path, typer.Option("-o", "--output", help="Output directory")] = Path(
-        "out"
-    ),
+    input_path: Annotated[
+        Path,
+        typer.Argument(
+            metavar="<input_path>",
+            help="Input slide file (.png, .jpg, .webp, .pdf, .pptx) or directory of slide files",
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "-o",
+            "--output",
+            help="Output directory for generated PPTX and quality report",
+        ),
+    ] = Path("out"),
     route: Annotated[
         Literal["auto", "vector", "raster"],
-        typer.Option("--route", help="Route selection: auto, vector, or raster"),
+        typer.Option(
+            "--route",
+            help="Route: auto (detect), vector (direct PDF parse), or raster (OCR + layers)",
+        ),
     ] = "auto",
     ocr_engine: Annotated[
         OCREngineType,
-        typer.Option("--ocr-engine", help="OCR engine: auto, apple_vision, or rapidocr"),
+        typer.Option(
+            "--ocr-engine",
+            help="OCR engine: auto (Apple Vision/RapidOCR), apple_vision, or rapidocr",
+        ),
     ] = "auto",
     pages: Annotated[
         str | None,
-        typer.Option("--pages", help="1-based page range, e.g. '1-3,5'"),
+        typer.Option(
+            "--pages",
+            help="1-based page range or list to convert, e.g. '1-3,5' (default: all pages)",
+        ),
     ] = None,
     max_iter: Annotated[
         int,
-        typer.Option("--max-iter", help="Max render-compare refinement iterations"),
+        typer.Option(
+            "--max-iter",
+            help="Max render-compare refinement iterations (0 = skip refinement)",
+        ),
     ] = 1,
     provider: Annotated[
         Literal["gemini", "openai"],
-        typer.Option("--provider", help="Model provider for VLM mode"),
+        typer.Option(
+            "--provider",
+            help="Cloud model provider when --vlm is enabled (gemini or openai)",
+        ),
     ] = "gemini",
     vlm: Annotated[
         bool,
-        typer.Option("--vlm", help="Require cloud VLM enhancement (requires API Key)"),
+        typer.Option(
+            "--vlm",
+            help="Require cloud VLM enhancement for difficult elements (requires API key)",
+        ),
     ] = False,
-    json_out: Annotated[bool, typer.Option("--json", help="Emit pure JSON to stdout")] = False,
+    json_out: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help="Emit pure JSON summary to stdout (progress logs redirect to stderr)",
+        ),
+    ] = False,
 ) -> None:
+    """Convert slide images, PDFs, or picture presentations into editable PPTX."""
     if not input_path.exists():
         typer.echo(f"错误：输入路径不存在：{input_path}", err=True)
         raise typer.Exit(code=1)
@@ -333,17 +388,36 @@ def convert_cmd(
 
 @app.command("report")
 def report_cmd(
-    report_file: Annotated[Path, typer.Argument(help="Path to <name>.report.json")],
+    report_file: Annotated[
+        Path,
+        typer.Argument(
+            metavar="<report_file>",
+            help="Path to conversion quality report (<name>.report.json)",
+        ),
+    ],
     needs_review: Annotated[
         bool,
-        typer.Option("--needs-review", help="List pages requiring human review"),
+        typer.Option(
+            "--needs-review",
+            help="Filter and list only pages with low SSIM or degraded layers requiring review",
+        ),
     ] = False,
     ssim_threshold: Annotated[
         float,
-        typer.Option("--ssim-threshold", help="SSIM threshold for review"),
+        typer.Option(
+            "--ssim-threshold",
+            help="SSIM similarity threshold below which a page requires review",
+        ),
     ] = 0.90,
-    json_out: Annotated[bool, typer.Option("--json", help="Emit pure JSON to stdout")] = False,
+    json_out: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help="Emit filtered report as pure JSON to stdout",
+        ),
+    ] = False,
 ) -> None:
+    """Inspect quality metrics and filter pages requiring human review."""
     if not report_file.exists():
         typer.echo(f"错误：报告文件不存在：{report_file}", err=True)
         raise typer.Exit(code=1)
@@ -369,18 +443,29 @@ def report_cmd(
 def gui_cmd(
     port: Annotated[
         int,
-        typer.Option("--port", "-p", help="Port to bind local GUI server to"),
+        typer.Option(
+            "--port",
+            "-p",
+            help="Port to bind local Web GUI server to (auto-increments if occupied)",
+        ),
     ] = 8765,
     host: Annotated[
         str,
-        typer.Option("--host", "-h", help="Host interface to bind to"),
+        typer.Option(
+            "--host",
+            "-h",
+            help="Host interface to bind to (e.g. 127.0.0.1 or 0.0.0.0)",
+        ),
     ] = "127.0.0.1",
     no_browser: Annotated[
         bool,
-        typer.Option("--no-browser", help="Do not open browser automatically on startup"),
+        typer.Option(
+            "--no-browser",
+            help="Start server without automatically opening the default browser",
+        ),
     ] = False,
 ) -> None:
-    """Start local Web GUI conversion workstation."""
+    """Start local Web GUI conversion workstation in browser."""
     import webbrowser
 
     from pptkit.gui.server import PPTKitServer, find_available_port
