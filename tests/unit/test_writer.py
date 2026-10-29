@@ -1,3 +1,4 @@
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ from pptkit.ir.models import (
     PresentationIR,
     ShapeElement,
     SlideIR,
+    SlideMaster,
     TextBoxElement,
     TextRun,
     TextStyle,
@@ -124,3 +126,70 @@ def test_write_pptx_native_textbox_and_shapes_editable(tmp_path: Path) -> None:
     rpr_xml = title_shape.text_frame.paragraphs[0].runs[0]._r.xml
     assert 'typeface="PingFang SC"' in rpr_xml
     assert "a:ea" in rpr_xml
+
+
+def test_write_pptx_with_master_shares_background_and_static_elements(tmp_path: Path) -> None:
+    # AC33.3: Master background and static elements shared across slides
+    bg_img = tmp_path / "master_bg.png"
+    Image.new("RGB", (200, 200), color=(240, 240, 240)).save(bg_img)
+
+    master = SlideMaster(
+        id="m-content",
+        kind="content",
+        background=Background(fill_type="image", image_path=str(bg_img)),
+        static_elements=[
+            ShapeElement(
+                id="m-hdr-bar",
+                bbox=BBox(x=0, y=0, width=12192000, height=400000),
+                shape_type="rect",
+                fill_color_hex="#0052D9",
+            )
+        ],
+    )
+
+    def _make_slide(idx: int) -> SlideIR:
+        return SlideIR(
+            page_index=idx,
+            route="raster",
+            master_id="m-content",
+            background=Background(fill_type="solid", color_hex="#FFFFFF"),
+            elements=[
+                TextBoxElement(
+                    id=f"tb-page-{idx}",
+                    bbox=BBox(x=1000000, y=2000000, width=4000000, height=800000),
+                    paragraphs=[
+                        Paragraph(
+                            runs=[
+                                TextRun(
+                                    text=f"第 {idx} 页内容",
+                                    style=TextStyle(font_size_pt=18.0),
+                                )
+                            ]
+                        )
+                    ],
+                )
+            ],
+        )
+
+    slides = [_make_slide(1), _make_slide(2), _make_slide(3)]
+    pres_ir = PresentationIR(
+        source_path="/fake/test.png",
+        masters=[master],
+        slides=slides,
+    )
+
+    out_pptx = tmp_path / "out_master.pptx"
+    write_pptx(pres_ir, out_pptx)
+
+    # 1. Verify single physical background image in ppt/media (deduplication)
+    with zipfile.ZipFile(out_pptx) as z:
+        media_files = [f for f in z.namelist() if f.startswith("ppt/media/")]
+        assert len(media_files) == 1
+
+    # 2. Verify all 3 slides render the master's static header bar + unique text
+    loaded = Presentation(str(out_pptx))
+    assert len(loaded.slides) == 3
+    for s in loaded.slides:
+        shape_names = [getattr(shape, "name", "") for shape in s.shapes]
+        assert "bg-image" in shape_names
+        assert "m-hdr-bar" in shape_names

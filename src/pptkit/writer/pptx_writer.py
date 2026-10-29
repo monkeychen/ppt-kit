@@ -15,7 +15,9 @@ from pptkit.ir.models import (
     ImageElement,
     PresentationIR,
     ShapeElement,
+    SlideElement,
     SlideIR,
+    SlideMaster,
     TableElement,
     TextBoxElement,
 )
@@ -282,12 +284,31 @@ def _add_table(slide: Any, elem: TableElement) -> None:
                 table.cell(r_idx, c_idx).merge(table.cell(target_r, target_c))
 
 
-def _write_slide(pres: Any, slide_ir: SlideIR) -> None:
+def _write_slide(
+    pres: Any,
+    slide_ir: SlideIR,
+    master_map: dict[str, SlideMaster] | None = None,
+) -> None:
     blank_layout = pres.slide_layouts[6]
     slide = pres.slides.add_slide(blank_layout)
-    _apply_background(slide, slide_ir.background, slide_ir.width_emu, slide_ir.height_emu)
 
-    sorted_elements = sorted(slide_ir.elements, key=lambda e: e.z_order)
+    master = master_map.get(slide_ir.master_id) if (master_map and slide_ir.master_id) else None
+    bg = slide_ir.background
+    if master and (
+        (bg.fill_type == "solid" and bg.color_hex == "#FFFFFF" and not bg.image_path)
+        or (bg.fill_type == "image" and not bg.image_path)
+    ):
+        if master.background.fill_type == "image" and master.background.image_path:
+            bg = master.background
+
+    _apply_background(slide, bg, slide_ir.width_emu, slide_ir.height_emu)
+
+    elements_to_render: list[SlideElement] = []
+    if master and master.static_elements:
+        elements_to_render.extend(master.static_elements)
+    elements_to_render.extend(slide_ir.elements)
+
+    sorted_elements = sorted(elements_to_render, key=lambda e: e.z_order)
     for elem in sorted_elements:
         if isinstance(elem, TextBoxElement):
             _add_textbox(slide, elem)
@@ -307,8 +328,10 @@ def write_pptx(ir: PresentationIR, output_path: Path | str) -> Path:
     pres.slide_width = Emu(ir.width_emu)
     pres.slide_height = Emu(ir.height_emu)
 
+    master_map = {m.id: m for m in ir.masters}
+
     for slide_ir in ir.slides:
-        _write_slide(pres, slide_ir)
+        _write_slide(pres, slide_ir, master_map)
 
     pres.save(str(out))
     return out
