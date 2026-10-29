@@ -17,7 +17,9 @@ from pptkit.gui.elements import extract_slide_elements_summary
 from pptkit.gui.session import SessionInfo
 from pptkit.ingest.loader import load_input
 from pptkit.ir.models import PresentationIR, SlideIR
+from pptkit.raster.master import induct_slide_masters
 from pptkit.raster.pipeline import reconstruct_raster_slide
+from pptkit.raster.quantize import quantize_presentation
 from pptkit.report.reporter import DocumentQualityReport, PageQualityReport
 from pptkit.vector.parser import parse_vector_pdf_page
 from pptkit.writer.pptx_writer import write_pptx
@@ -251,12 +253,15 @@ class ConversionTask:
 
             pptx_out = out_dir / f"{src_file.stem}.pptx"
             if slides_ir:
+                masters, slides_ir = induct_slide_masters(slides_ir)
                 pres_ir = PresentationIR(
                     source_path=str(src_file),
                     width_emu=slides_ir[0].width_emu,
                     height_emu=slides_ir[0].height_emu,
+                    masters=masters,
                     slides=slides_ir,
                 )
+                pres_ir = quantize_presentation(pres_ir)
                 write_pptx(pres_ir, pptx_out)
                 self.output_pptx_path = pptx_out
 

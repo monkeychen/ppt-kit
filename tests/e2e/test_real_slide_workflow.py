@@ -25,8 +25,11 @@ def test_convert_user_real_slide_to_editable_pptx(tmp_path: Path) -> None:
     assert succ == 1 and fail == 0
     pptx_path = out_dir / "01-ai-beginner-workflow.pptx"
     assert pptx_path.exists()
-    assert rep.pages[0].editable_elements >= 75
-    assert rep.pages[0].ssim is not None and rep.pages[0].ssim > 0.65
+    # After v0.3.1 F31 Card Grouping and F32 Picture Clustering:
+    # Multiple isolated single-line text boxes are grouped into semantic flowing cards
+    # and fragmented micro-debris is filtered/clustered.
+    assert rep.pages[0].editable_elements >= 45
+    assert rep.pages[0].ssim is not None and rep.pages[0].ssim > 0.60
     assert rep.pages[0].text_region_mae is not None and rep.pages[0].text_region_mae < 60.0
 
     # Open generated PPTX and verify native editable textboxes, geometric shapes, and image layers
@@ -35,9 +38,9 @@ def test_convert_user_real_slide_to_editable_pptx(tmp_path: Path) -> None:
     tb_shapes = [s for s in shapes if s.name.startswith("p0-tb-")]
     geom_shapes = [s for s in shapes if s.name.startswith("p0-sh-")]
     img_layers = [s for s in shapes if s.name.startswith("p0-img-")]
-    assert len(tb_shapes) >= 35
+    assert len(tb_shapes) >= 8
     assert len(geom_shapes) >= 20
-    assert len(img_layers) >= 24
+    assert len(img_layers) >= 12
     # Ensure no multiple illustrations were merged into a single huge image layer
     assert all(s.width <= 1600000 and s.height <= 1600000 for s in img_layers)
 
@@ -50,7 +53,7 @@ def test_convert_user_real_slide_to_editable_pptx(tmp_path: Path) -> None:
     assert "背景、痛点、需求" in joined
     assert "请你帮我直接完成吧" in joined
     assert "同时沉淀成Skill" in joined
-    assert "现在，只需要半天时间，你已经学会使用AI了。" in joined
+    assert "现在，只需要半天时间，你已经学会使用AI了" in joined
 
     # Verify slide_000_bg.png has zero colored capsule residue underneath the 4 section headers
     import numpy as np
@@ -90,7 +93,8 @@ def test_convert_second_real_slide_multicolor_and_nested_icons() -> None:
     assert succ == 1 and fail == 0
     pptx_path = out_dir / "02-skill-folder-concept.pptx"
     assert pptx_path.exists()
-    assert rep.pages[0].editable_elements >= 35
+    # After v0.3.1 card grouping and picture clustering
+    assert rep.pages[0].editable_elements >= 25
     assert rep.pages[0].ssim is not None and rep.pages[0].ssim > 0.80
 
     pres = Presentation(str(pptx_path))
@@ -98,9 +102,9 @@ def test_convert_second_real_slide_multicolor_and_nested_icons() -> None:
     tb_shapes = [s for s in shapes if s.name.startswith("p0-tb-")]
     geom_shapes = [s for s in shapes if s.name.startswith("p0-sh-")]
     img_layers = [s for s in shapes if s.name.startswith("p0-img-")]
-    assert len(tb_shapes) >= 18
+    assert len(tb_shapes) >= 12
     assert len(geom_shapes) >= 6
-    assert len(img_layers) >= 11
+    assert len(img_layers) >= 8
 
     # Verify merged subtitle and multi-color TextRun segmentation
     subtitle_tbs = [
@@ -109,7 +113,7 @@ def test_convert_second_real_slide_multicolor_and_nested_icons() -> None:
     assert len(subtitle_tbs) == 1
     assert len(subtitle_tbs[0].text_frame.paragraphs[0].runs) >= 4
 
-    bottom_tbs = [s for s in tb_shapes if "系统先识别文件夹，再读取说明。" in s.text_frame.text]
+    bottom_tbs = [s for s in tb_shapes if "系统先识别文件夹，再读取说明" in s.text_frame.text]
     assert len(bottom_tbs) == 1
     assert len(bottom_tbs[0].text_frame.paragraphs[0].runs) >= 4
 

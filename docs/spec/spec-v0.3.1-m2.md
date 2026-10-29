@@ -121,4 +121,18 @@ def quantize_presentation_typography(
 | T1 | 字号阶梯量化与调色板收敛器（`quantize.py`） | AC34.1, AC34.2 | 无 | ✅ Done（`test_quantize.py` 3/3 passed） |
 | T2 | 双母版底图聚类与跨页公共固定元素提取（`master.py`） | AC33.1, AC33.2 | 无 | ✅ Done（`test_master.py` 2/2 passed） |
 | T3 | PPTX Writer 母版共享注入与瘦身机制 | AC33.3 | T1, T2 | ✅ Done（`test_writer.py` 2/2 passed） |
-| T4 | 端到端 10 页 PPT 基准测试与验证 | AC33.1~AC34.2 | T3 | Pending |
+| T4 | 端到端 10 页 PPT 基准测试与验证 | AC33.1~AC34.2 | T3 | ✅ Done（`test_master_cli_e2e.py`, `test_real_slide_workflow.py` 全绿） |
+
+---
+
+## 6. 验收记录 (Acceptance Record)
+
+| 验收项 | 验收结果 | 验证命令/测试用例 |
+|---|---|---|
+| **AC33.1** 双母版聚类归纳 | 通过 | `tests/unit/test_master.py::test_slide_master_clustering_title_and_content` |
+| **AC33.2** 跨页公共固定元素提取 | 通过 | `tests/unit/test_master.py::test_extract_static_header_elements_to_master` |
+| **AC33.3** PPTX Writer 母版共享与体积缩减 | 通过 | `tests/unit/test_writer.py::test_write_pptx_with_master_shares_background_and_static_elements` |
+| **AC34.1** 排版字号阶梯量化规约 | 通过 | `tests/unit/test_quantize.py::test_quantize_font_size_ladder` |
+| **AC34.2** CIELAB 色彩空间调色板聚合收敛 | 通过 | `tests/unit/test_quantize.py::test_quantize_color_palette_clustering` |
+| **端到端集成** CLI & GUI 母版提取与量化全链路 | 通过 | `tests/e2e/test_master_cli_e2e.py`, `tests/e2e/test_real_slide_workflow.py` |
+

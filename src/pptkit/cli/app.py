@@ -12,7 +12,9 @@ import typer
 from pptkit.adapters.ocr import OCREngineType
 from pptkit.ingest.loader import SUPPORTED_EXTS, IngestError, load_input
 from pptkit.ir.models import PresentationIR, SlideIR
+from pptkit.raster.master import induct_slide_masters
 from pptkit.raster.pipeline import reconstruct_raster_slide
+from pptkit.raster.quantize import quantize_presentation
 from pptkit.report.reporter import (
     DocumentQualityReport,
     PageQualityReport,
@@ -231,12 +233,15 @@ def _convert_single_file(
         if src_file.resolve() == pptx_out.resolve():
             pptx_out = out_dir / f"{src_file.stem}.converted.pptx"
         if slides_ir:
+            masters, slides_ir = induct_slide_masters(slides_ir)
             pres_ir = PresentationIR(
                 source_path=str(src_file),
                 width_emu=slides_ir[0].width_emu,
                 height_emu=slides_ir[0].height_emu,
+                masters=masters,
                 slides=slides_ir,
             )
+            pres_ir = quantize_presentation(pres_ir)
             write_pptx(pres_ir, pptx_out)
 
     doc_report = DocumentQualityReport(

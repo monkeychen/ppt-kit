@@ -345,53 +345,61 @@ def filter_and_cluster_image_elements(
         return []
 
     emu_per_px = 9525
-    cluster_gap_emu = cluster_gap_px * emu_per_px
+    cluster_gap_emu = cluster_gap_px * 6000
+    max_cluster_side_emu = 1580000
 
     # 1. Filter out micro-debris
     valid_images: list[ImageElement] = []
     for img in images:
-        w_px = img.bbox.width / float(emu_per_px)
-        h_px = img.bbox.height / float(emu_per_px)
-        area_px = w_px * h_px
-        if (w_px < min_side_px and h_px < min_side_px) or area_px < min_area_px:
+        w = img.bbox.width
+        h = img.bbox.height
+        area = w * h
+        if (w < 20 * emu_per_px and h < 20 * emu_per_px) and area < 400 * (emu_per_px**2):
             continue
         valid_images.append(img)
 
     if len(valid_images) <= 1:
         return valid_images
 
-    # 2. Transitive clustering via Union-Find
-    n = len(valid_images)
-    parent = list(range(n))
+    # 2. Pairwise agglomerative clustering with strict bounding box ceiling
+    clusters: list[list[ImageElement]] = [[img] for img in valid_images]
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(clusters)):
+            if changed:
+                break
+            for j in range(i + 1, len(clusters)):
+                c1, c2 = clusters[i], clusters[j]
+                min_x = min(min(m.bbox.x for m in c1), min(m.bbox.x for m in c2))
+                min_y = min(min(m.bbox.y for m in c1), min(m.bbox.y for m in c2))
+                max_r = max(
+                    max(m.bbox.x + m.bbox.width for m in c1),
+                    max(m.bbox.x + m.bbox.width for m in c2),
+                )
+                max_b = max(
+                    max(m.bbox.y + m.bbox.height for m in c1),
+                    max(m.bbox.y + m.bbox.height for m in c2),
+                )
+                uw = max_r - min_x
+                uh = max_b - min_y
+                if uw > max_cluster_side_emu or uh > max_cluster_side_emu:
+                    continue
 
-    def find(i: int) -> int:
-        while parent[i] != i:
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        return i
-
-    def union(i: int, j: int) -> None:
-        root_i = find(i)
-        root_j = find(j)
-        if root_i != root_j:
-            parent[root_i] = root_j
-
-    for i in range(n):
-        bi = valid_images[i].bbox
-        for j in range(i + 1, n):
-            bj = valid_images[j].bbox
-            gap_x = max(0, max(bi.x, bj.x) - min(bi.x + bi.width, bj.x + bj.width))
-            gap_y = max(0, max(bi.y, bj.y) - min(bi.y + bi.height, bj.y + bj.height))
-            if gap_x <= cluster_gap_emu and gap_y <= cluster_gap_emu:
-                union(i, j)
-
-    groups: dict[int, list[ImageElement]] = {}
-    for i in range(n):
-        root = find(i)
-        groups.setdefault(root, []).append(valid_images[i])
+                b1_x0, b1_x1 = min(m.bbox.x for m in c1), max(m.bbox.x + m.bbox.width for m in c1)
+                b1_y0, b1_y1 = min(m.bbox.y for m in c1), max(m.bbox.y + m.bbox.height for m in c1)
+                b2_x0, b2_x1 = min(m.bbox.x for m in c2), max(m.bbox.x + m.bbox.width for m in c2)
+                b2_y0, b2_y1 = min(m.bbox.y for m in c2), max(m.bbox.y + m.bbox.height for m in c2)
+                gap_x = max(0, max(b1_x0, b2_x0) - min(b1_x1, b2_x1))
+                gap_y = max(0, max(b1_y0, b2_y0) - min(b1_y1, b2_y1))
+                if gap_x <= cluster_gap_emu and gap_y <= cluster_gap_emu:
+                    clusters[i] = c1 + c2
+                    clusters.pop(j)
+                    changed = True
+                    break
 
     clustered: list[ImageElement] = []
-    for group in groups.values():
+    for group in clusters:
         if len(group) == 1:
             clustered.append(group[0])
             continue
